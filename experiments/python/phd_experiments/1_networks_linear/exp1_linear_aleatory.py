@@ -1,13 +1,19 @@
 # external imports
 import os
 import pickle
+import sys
 import time
+from pathlib import Path
 
 import pandas as pd
 
+# Add project root to sys.path to allow importing from cbn_python/src
+root_dir = Path(__file__).resolve().parents[4]
+sys.path.append(str(root_dir / "cbn_python" / "src"))
+
 # local imports
-from classes.localtemplates import PathCircleTemplate
-from classes.utils.customtext import CustomText
+from cbnetwork.utils.customtext import CustomText
+from cbnetwork.localtemplates import PathCircleTemplate
 
 """
 Experiment 1 - Test the path and 3_ring_aleatory structures 
@@ -16,7 +22,7 @@ using aleatory generated template for the local network
 
 # experiment parameters
 N_SAMPLES = 10000
-N_LOCAL_NETWORKS_MIN = 11
+N_LOCAL_NETWORKS_MIN = 3
 N_LOCAL_NETWORKS_MAX = 11
 N_VAR_NETWORK = 5
 N_OUTPUT_VARIABLES = 2

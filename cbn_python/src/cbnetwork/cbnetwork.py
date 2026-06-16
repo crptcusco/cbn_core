@@ -2417,6 +2417,10 @@ class CBN:
             for net in l_local_networks:
                 if net.index == edge.output_local_network:
                     net.descriptive_function_variables.append(coupling_variable)
+                    # Ensure the coupling variable is in the total variables list
+                    if edge.index_variable not in net.total_variables:
+                        net.total_variables.append(edge.index_variable)
+                        net.total_variables_count = len(net.total_variables)
                     break
 
         # Generate the special Coupled Boolean Network (CBN)
