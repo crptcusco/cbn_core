@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Agregar el directorio src al path para poder importar el paquete localmente
 # Calcula la ruta del repositorio y añade `src` de forma robusta

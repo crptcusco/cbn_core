@@ -3,10 +3,10 @@
 # import libraries
 from cbnetwork.cbnetwork import CBN
 from cbnetwork.directededge import DirectedEdge
+from cbnetwork.globaltopology import GlobalTopology
 from cbnetwork.internalvariable import InternalVariable
 from cbnetwork.localnetwork import LocalNetwork
 from cbnetwork.localtemplates import LocalNetworkTemplate
-from cbnetwork.globaltopology import GlobalTopology
 
 # pass the parameters
 n_local_networks = 10
@@ -23,7 +23,7 @@ o_template = LocalNetworkTemplate(
     n_input_variables=n_output_variables,
     n_output_variables=n_output_variables,
     n_max_of_clauses=n_clauses_function,
-    n_max_of_literals=3
+    n_max_of_literals=3,
 )
 
 # Generate topology to get edges
@@ -36,7 +36,7 @@ o_cbn = CBN.generate_cbn_from_template(
     n_local_networks=n_local_networks,
     n_vars_network=n_var_network,
     o_template=o_template,
-    l_global_edges=o_temp_topology.l_edges
+    l_global_edges=o_temp_topology.l_edges,
 )
 
 # Adding a network to make restricted the signals
@@ -73,7 +73,11 @@ l_output_variables = [103, 104]
 coupling_function = " " + " ∨ ".join(map(str, l_output_variables)) + " "
 o_directed_edge = DirectedEdge(
     len(o_cbn.l_directed_edges) + 1,
-    i_variable_signal, t_edge[0], t_edge[1], l_output_variables, coupling_function
+    i_variable_signal,
+    t_edge[0],
+    t_edge[1],
+    l_output_variables,
+    coupling_function,
 )
 o_cbn.l_directed_edges.append(o_directed_edge)
 

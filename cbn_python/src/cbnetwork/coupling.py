@@ -4,6 +4,7 @@ This module defines the coupling strategies for Coupled Boolean Networks (CBNs).
 It provides a flexible way to define the logical relationship between local networks
 through the `CouplingStrategy` abstract base class and its concrete implementations.
 """
+
 from abc import ABC, abstractmethod
 from itertools import combinations
 from typing import List

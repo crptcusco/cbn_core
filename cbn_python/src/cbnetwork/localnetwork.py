@@ -27,7 +27,9 @@ class LocalNetwork:
         self.internal_variables = internal_variables
 
         # Processed properties
-        self.descriptive_function_variables: list = []  # List of desired function variables
+        self.descriptive_function_variables: list = (
+            []
+        )  # List of desired function variables
         self.external_variables: list = []  # List of external variables
         self.total_variables: list = []  # List of all variables
         self.total_variables_count = 0  # Total number of variables
@@ -184,16 +186,23 @@ class LocalNetwork:
         High-performance brute-force attractor finding using Numba.
         This method orchestrates calls to the accelerated functions in `acceleration.py`.
         """
-        from .acceleration import find_attractors_turbo, HAS_NUMBA
         import numpy as np
 
+        from .acceleration import HAS_NUMBA, find_attractors_turbo
+
         if not HAS_NUMBA:
-            logger.warning("Numba not available. Falling back to sequential brute force.")
-            return LocalNetwork.find_local_attractors_brute_force(local_network, local_scenes)
+            logger.warning(
+                "Numba not available. Falling back to sequential brute force."
+            )
+            return LocalNetwork.find_local_attractors_brute_force(
+                local_network, local_scenes
+            )
 
         local_network.local_scenes = []
-        CustomText.make_sub_sub_title(f"FIND ATTRACTORS (TURBO) FOR NETWORK: {local_network.index}")
-        
+        CustomText.make_sub_sub_title(
+            f"FIND ATTRACTORS (TURBO) FOR NETWORK: {local_network.index}"
+        )
+
         scenes_to_process = [None] if local_scenes is None else local_scenes
         total_attractor_count = 0
 
@@ -203,11 +212,11 @@ class LocalNetwork:
 
             if isinstance(scene_obj, str):
                 scene_label = scene_obj
-            elif hasattr(scene_obj, 'l_values'):
+            elif hasattr(scene_obj, "l_values"):
                 scene_label = "".join(map(str, scene_obj.l_values))
             else:
                 scene_label = "None"
-            
+
             # Convert numerical cycles back to LocalAttractor objects
             scene_attractors = []
             num_vars = len(local_network.internal_variables)
@@ -227,13 +236,17 @@ class LocalNetwork:
                     local_scene=scene_label,
                 )
                 scene_attractors.append(attractor)
-            
+
             # Store results in the corresponding scene object
             if isinstance(scene_obj, LocalScene):
                 scene_obj.l_attractors = scene_attractors
                 local_network.local_scenes.append(scene_obj)
             else:
-                new_scene = LocalScene(len(local_network.local_scenes) + 1, scene_label, local_network.external_variables)
+                new_scene = LocalScene(
+                    len(local_network.local_scenes) + 1,
+                    scene_label,
+                    local_network.external_variables,
+                )
                 new_scene.l_attractors = scene_attractors
                 local_network.local_scenes.append(new_scene)
 
@@ -303,7 +316,9 @@ class LocalNetwork:
                     internal_var = local_network.get_internal_variable(var_idx)
                     if internal_var:
                         next_val = LocalNetwork.evaluate_boolean_function(
-                            internal_var.cnf_function, current_state_dict, external_values
+                            internal_var.cnf_function,
+                            current_state_dict,
+                            external_values,
                         )
                         next_state_vals.append(next_val)
                     else:
@@ -316,7 +331,7 @@ class LocalNetwork:
             visited = set()
             scene_attractors = []
 
-            for start_node in state_map:
+            for start_node in sorted(state_map.keys()):
                 if start_node in visited:
                     continue
 
@@ -436,6 +451,7 @@ class LocalNetwork:
                 )
 
         import itertools
+
         boolean_function = (
             local_network.cnf_variables_map[f"{local_network.total_variables[0]}_0"]
             | -local_network.cnf_variables_map[f"{local_network.total_variables[0]}_0"]
@@ -523,12 +539,12 @@ class LocalNetwork:
                     ]
                     if str(neg_term)[0] == "-":
                         lit = -lit
-                    
+
                     if blocking_clause is None:
                         blocking_clause = lit
                     else:
                         blocking_clause |= lit
-                
+
                 if blocking_clause is not None:
                     boolean_function &= blocking_clause
 
@@ -557,7 +573,7 @@ class LocalNetwork:
                     try:
                         val = solution[local_network.cnf_variables_map[f"{i}_{j}"]]
                     except KeyError:
-                         # Variable optimized out or not participating; default to False (0)
+                        # Variable optimized out or not participating; default to False (0)
                         val = False
                     aux_sat_row.append("1" if val else "0")
                 aux_sat_matrix.append(aux_sat_row)

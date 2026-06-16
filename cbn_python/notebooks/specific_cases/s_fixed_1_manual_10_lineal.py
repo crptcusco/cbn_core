@@ -1,10 +1,10 @@
 # import libraries
 from cbnetwork.cbnetwork import CBN
 from cbnetwork.directededge import DirectedEdge
+from cbnetwork.globaltopology import GlobalTopology
 from cbnetwork.internalvariable import InternalVariable
 from cbnetwork.localnetwork import LocalNetwork
 from cbnetwork.localtemplates import LocalNetworkTemplate
-from cbnetwork.globaltopology import GlobalTopology
 
 # script to put a manual parameters for the example of 4 networks
 print("MESSAGE:", "1 FIXED 10 LINEAL CBN MANUAL SCRIPT EXAMPLE")
@@ -69,7 +69,12 @@ t_edge = l_edges[-1]
 l_output_variables = [63, 64]
 coupling_function = " " + " ∨ ".join(map(str, l_output_variables)) + " "
 o_directed_edge = DirectedEdge(
-    i_directed_edge_index, 65, t_edge[1], t_edge[0], l_output_variables, coupling_function
+    i_directed_edge_index,
+    65,
+    t_edge[1],
+    t_edge[0],
+    l_output_variables,
+    coupling_function,
 )
 l_directed_edges.append(o_directed_edge)
 o_directed_edge.show()
@@ -142,4 +147,3 @@ o_cbn.show_stable_attractor_fields()
 
 # show the kind of every coupled signal
 o_cbn.show_coupled_signals_kind()
-

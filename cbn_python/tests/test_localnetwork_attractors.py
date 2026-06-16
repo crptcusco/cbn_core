@@ -1,5 +1,5 @@
-from cbnetwork.localnetwork import LocalNetwork
 from cbnetwork.internalvariable import InternalVariable
+from cbnetwork.localnetwork import LocalNetwork
 
 
 def _normalize_attractors(local_scenes):

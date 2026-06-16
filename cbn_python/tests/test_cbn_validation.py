@@ -1,7 +1,8 @@
 import pytest
 from cbnetwork.cbnetwork import CBN
-from cbnetwork.localtemplates import LocalNetworkTemplate
 from cbnetwork.coupling import OrCoupling
+from cbnetwork.localtemplates import LocalNetworkTemplate
+
 
 def test_generate_cbn_from_template_invalid_indices():
     """

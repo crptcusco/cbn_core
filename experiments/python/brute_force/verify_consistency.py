@@ -1,15 +1,13 @@
 import logging
 import sys
-from cbnetwork.localnetwork import LocalNetwork
+
 from cbnetwork.internalvariable import InternalVariable
+from cbnetwork.localnetwork import LocalNetwork
 from cbnetwork.utils.customtext import CustomText
 
 # 1. Setup Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(message)s',
-    stream=sys.stdout
-)
+logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
+
 
 def extract_attractor_signatures(local_network):
     """Return a list of scenes where each scene is a sorted set of attractor tuples."""
@@ -33,7 +31,7 @@ def extract_attractor_signatures(local_network):
 
 def compare_network(net_builder, network_name):
     CustomText.make_sub_sub_title(f"Comparing: {network_name}")
-    
+
     # Build two fresh instances for each method
     net_a = net_builder()
     net_b = net_builder()
@@ -54,7 +52,7 @@ def compare_network(net_builder, network_name):
 
     logging.info(f"  Brute-force signatures: {sig_a}")
     logging.info(f"  SAT-based signatures:   {sig_b}")
-    
+
     if sig_a == sig_b:
         logging.info("  [MATCH] Methods yielded identical attractors.")
         return True
@@ -82,14 +80,14 @@ def build_fixed_network():
 
 if __name__ == "__main__":
     CustomText.make_principal_title("CROSS-METHOD ATTRACTOR COMPARISON")
-    
+
     ok1 = compare_network(build_cycle_network, "2-variable cycle network")
     ok2 = compare_network(build_fixed_network, "1-variable fixed network")
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     if ok1 and ok2:
         print(" FINAL VERIFICATION SUCCESS: All signatures matched perfectly.")
     else:
         print(" FINAL VERIFICATION FAILURE: Discrepancies found.")
         sys.exit(1)
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")

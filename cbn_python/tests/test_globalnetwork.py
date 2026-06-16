@@ -1,8 +1,5 @@
-from cbnetwork.globalnetwork.globalnetwork import (
-    GlobalNetwork,
-    GlobalState,
-    GlobalAttractor,
-)
+from cbnetwork.globalnetwork.globalnetwork import (GlobalAttractor,
+                                                   GlobalNetwork, GlobalState)
 
 
 class DummyAttractor:
