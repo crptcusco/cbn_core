@@ -1,10 +1,12 @@
 import logging
 import time
+
 from cbnetwork.cbnetwork import CBN
+
 
 def run_tiny_benchmark():
     logging.basicConfig(level=logging.ERROR)
-    
+
     # TINY system: 3 networks, 5 vars
     print("\n🔬 Benchmark Step 3: 3 networks, 5 vars each (Complete topology)")
     print(f"{'Method':<30} | {'Time':<10} | {'Fields'}")
@@ -17,13 +19,13 @@ def run_tiny_benchmark():
         n_input_variables=1,
         n_output_variables=1,
         n_max_of_clauses=2,
-        n_max_of_literals=2
+        n_max_of_literals=2,
     )
 
     # STEP 1 + 2
     o_cbn.find_local_attractors_brute_force_turbo_sequential()
     o_cbn.find_compatible_pairs()
-    
+
     # STEP 3 - Sequential
     start = time.time()
     o_cbn.mount_stable_attractor_fields()
@@ -33,7 +35,7 @@ def run_tiny_benchmark():
 
     # STEP 3 - Turbo (with warmup)
     o_cbn.mount_stable_attractor_fields_turbo()
-    
+
     start = time.time()
     o_cbn.mount_stable_attractor_fields_turbo()
     turbo_time = time.time() - start
@@ -46,6 +48,7 @@ def run_tiny_benchmark():
         print(f"Speedup: {speedup:.2f}x")
     else:
         print(f"\n⚠ MISMATCH: Seq={seq_fields}, Turbo={turbo_fields}")
+
 
 if __name__ == "__main__":
     run_tiny_benchmark()

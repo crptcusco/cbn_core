@@ -1,9 +1,8 @@
 import logging
 
-from globalnetwork import GlobalNetwork as gn
-
 from classes.cbnetwork import CBN
 from classes.utils.logging_config import setup_logging
+from globalnetwork import GlobalNetwork as gn
 
 setup_logging()
 logger = logging.getLogger(__name__)

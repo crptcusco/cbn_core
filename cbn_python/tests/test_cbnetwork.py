@@ -1,8 +1,9 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 from cbnetwork.cbnetwork import CBN
-from cbnetwork.localnetwork import LocalNetwork
 from cbnetwork.directededge import DirectedEdge
+from cbnetwork.localnetwork import LocalNetwork
 
 
 class TestCBN:

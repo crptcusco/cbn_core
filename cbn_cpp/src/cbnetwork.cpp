@@ -290,8 +290,11 @@ std::vector<std::shared_ptr<LocalAttractor>> CBN::get_attractors_by_input_signal
             auto it = std::find(scene->l_index_signals.begin(), scene->l_index_signals.end(), index_variable_signal);
             if (it != scene->l_index_signals.end()) {
                 int pos = std::distance(scene->l_index_signals.begin(), it);
-                if (scene->l_values.at(0).at(pos) == (signal_value + '0')) {
-                    for (auto& attr : scene->l_attractors) l_attractors.push_back(attr);
+                for (const auto& val_str : scene->l_values) {
+                    if (pos < val_str.length() && val_str.at(pos) == (signal_value + '0')) {
+                        for (auto& attr : scene->l_attractors) l_attractors.push_back(attr);
+                        break;
+                    }
                 }
             }
         }
@@ -906,5 +909,52 @@ void CBN::_assign_global_indices_to_attractors() {
 
 void CBN::generate_global_scenes() {}
 void CBN::count_fields_by_global_scenes() {}
+
+
+int CBN::get_n_local_variables() const { if (l_local_networks.empty()) return 0; return l_local_networks[0]->internal_variables.size(); }
+
+std::shared_ptr<CBN> CBN::load_network_from_json(const std::string& filepath) {
+    using json = nlohmann::json;
+    std::ifstream i(filepath);
+    if (!i.is_open()) throw std::runtime_error("Could not open file: " + filepath);
+    json j; i >> j;
+    std::vector<std::shared_ptr<LocalNetwork>> networks;
+    if (j.contains("local_networks")) {
+        for (auto& net_j : j["local_networks"]) {
+            int idx = net_j["index"];
+            std::vector<int> internal_vars = net_j["internal_variables"].get<std::vector<int>>();
+            auto net = std::make_shared<LocalNetwork>(idx, internal_vars);
+            std::string logic_key = net_j.contains("descriptive_function_variables") ? "descriptive_function_variables" : "logic";
+            for (auto& var_j : net_j[logic_key]) {
+                int v_idx = var_j["index"];
+                std::vector<std::vector<int>> cnf = var_j["cnf"].get<std::vector<std::vector<int>>>();
+                net->descriptive_function_variables.push_back(std::make_shared<InternalVariable>(v_idx, cnf));
+            }
+            networks.push_back(net);
+        }
+    }
+    std::vector<std::shared_ptr<DirectedEdge>> edges;
+    if (j.contains("directed_edges")) {
+        for (auto& edge_j : j["directed_edges"]) {
+            int idx = edge_j["index"];
+            int idx_var = edge_j.contains("index_variable") ? (int)edge_j["index_variable"] : (int)edge_j["signal_var"];
+            int out_net = edge_j.contains("output_local_network") ? (int)edge_j["output_local_network"] : (int)edge_j["source"];
+            int in_net = edge_j.contains("input_local_network") ? (int)edge_j["input_local_network"] : (int)edge_j["target"];
+            std::vector<int> out_vars = edge_j.contains("output_variables") ? edge_j["output_variables"].get<std::vector<int>>() : edge_j.contains("output_vars") ? edge_j["output_vars"].get<std::vector<int>>() : std::vector<int>();
+            std::string coup_func = edge_j.contains("coupling_function") ? edge_j["coupling_function"].get<std::string>() : edge_j.contains("function") ? edge_j["function"].get<std::string>() : "";
+            auto edge = std::make_shared<DirectedEdge>(idx, idx_var, in_net, out_net, out_vars, coup_func);
+            if (edge_j.contains("true_table")) edge->true_table = edge_j["true_table"].get<std::map<std::string, std::string>>();
+            edges.push_back(edge);
+        }
+    }
+    for (auto& net : networks) {
+        std::vector<std::shared_ptr<DirectedEdge>> inputs;
+        for (auto& edge : edges) if (edge->input_local_network == net->index) inputs.push_back(edge);
+        net->process_input_signals(inputs);
+    }
+    auto cbn = std::make_shared<CBN>(networks, edges);
+    cbn->process_output_signals();
+    return cbn;
+}
 
 } // namespace cbnetwork

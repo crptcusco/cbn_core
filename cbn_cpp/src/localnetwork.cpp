@@ -83,8 +83,14 @@ std::shared_ptr<LocalNetwork> LocalNetwork::find_local_attractors_brute_force(
             }
 
             std::vector<int> next_state_vals;
-            for (const auto& var_model : local_network->descriptive_function_variables) {
-                int next_val = evaluate_boolean_function(var_model->cnf_function, current_state_dict, external_values);
+            for (int var_idx : local_network->internal_variables) {
+                int next_val = 0;
+                for (const auto& var_model : local_network->descriptive_function_variables) {
+                    if (var_model->index == var_idx) {
+                        next_val = evaluate_boolean_function(var_model->cnf_function, current_state_dict, external_values);
+                        break;
+                    }
+                }
                 next_state_vals.push_back(next_val);
             }
             state_map[current_state_vals] = next_state_vals;

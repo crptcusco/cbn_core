@@ -1,7 +1,8 @@
-import pytest
 from unittest.mock import MagicMock
-from cbnetwork.localnetwork import LocalNetwork
+
+import pytest
 from cbnetwork.internalvariable import InternalVariable
+from cbnetwork.localnetwork import LocalNetwork
 from cbnetwork.localscene import LocalScene
 
 

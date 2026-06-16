@@ -1,6 +1,7 @@
 import os
-from cbnetwork.localnetwork import LocalNetwork
+
 from cbnetwork.internalvariable import InternalVariable
+from cbnetwork.localnetwork import LocalNetwork
 
 
 def extract_attractor_signatures(local_network):

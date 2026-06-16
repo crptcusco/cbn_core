@@ -25,9 +25,7 @@ class CNFList:
         """
         max_attempts = 100  # Safety break to prevent potential infinite loops
         for _ in range(max_attempts):
-            num_clauses = random.randint(
-                1, max_clauses
-            )
+            num_clauses = random.randint(1, max_clauses)
             l_cnf = []
 
             # Generate the clause for external signals
@@ -51,8 +49,7 @@ class CNFList:
                 clause_vars = random.sample(l_inter_vars, num_literals)
 
                 clause = [
-                    -var if random.choice([True, False]) else var
-                    for var in clause_vars
+                    -var if random.choice([True, False]) else var for var in clause_vars
                 ]
 
                 # Remove redundant literals within the clause (e.g., [A, -A])
@@ -62,7 +59,9 @@ class CNFList:
                     l_cnf.append(clause)
 
             # Post-processing
-            l_cnf = [c for c in l_cnf if c]  # Remove any empty clauses that slipped through
+            l_cnf = [
+                c for c in l_cnf if c
+            ]  # Remove any empty clauses that slipped through
             l_cnf = CNFList.remove_duplicates(l_cnf)
 
             # If we have a valid CNF, return it
@@ -70,7 +69,9 @@ class CNFList:
                 return l_cnf
 
         # If we've exhausted all attempts and still have no CNF, raise an error
-        raise RuntimeError(f"Failed to generate a valid CNF function after {max_attempts} attempts.")
+        raise RuntimeError(
+            f"Failed to generate a valid CNF function after {max_attempts} attempts."
+        )
 
     @staticmethod
     def simplify_clause(clause):

@@ -3,7 +3,6 @@ import matplotlib
 # Use non-interactive backend for tests
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-
 from cbnetwork.globaltopology import GlobalTopology, NullTopology
 
 
@@ -17,6 +16,7 @@ def test_generate_sample_topology_valid_complete():
 
 
 import pytest
+
 
 def test_generate_sample_topology_invalid_topology_raises_error():
     """
