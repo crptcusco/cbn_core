@@ -298,12 +298,17 @@ class LocalNetwork:
 
                 # Calculate next state
                 next_state_vals = []
-                for internal_var in local_network.descriptive_function_variables:
-                    # Evaluate function for this variable
-                    next_val = LocalNetwork.evaluate_boolean_function(
-                        internal_var.cnf_function, current_state_dict, external_values
-                    )
-                    next_state_vals.append(next_val)
+                # Only iterate over internal variables for state transition
+                for var_idx in local_network.internal_variables:
+                    internal_var = local_network.get_internal_variable(var_idx)
+                    if internal_var:
+                        next_val = LocalNetwork.evaluate_boolean_function(
+                            internal_var.cnf_function, current_state_dict, external_values
+                        )
+                        next_state_vals.append(next_val)
+                    else:
+                        # Should not happen
+                        next_state_vals.append(current_state_dict[var_idx])
 
                 state_map[tuple(current_state_vals)] = tuple(next_state_vals)
 
