@@ -129,6 +129,23 @@ outputs/
 *.csv
 *.log
 
+# Bloquear directorios de compilación nativos de C++
+cbn_cpp/build/
+cbn_cpp/CMakeLists.txt.user
+
+# Bloquear todas las carpetas de resultados de experimentos (masivos y de control)
+experiments/results_*/
+**/results_t*/
+experiments/outputs/
+
+# Bloquear archivos de datos masivos (JSON dinámicos y estructuras generadas)
+**/cbn_sample_*
+*.json
+
+# Excepciones: Si en el futuro necesitas subir un JSON de configuración específico, 
+# puedes forzarlo descomentando la línea de abajo:
+# !experiments/config.json
+
 # Temporary and local IDE files
 .tmp_test_env/
 .vscode/
