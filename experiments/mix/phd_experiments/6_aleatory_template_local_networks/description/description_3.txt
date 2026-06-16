@@ -1,0 +1,36 @@
+**************************************************
+CBN DESCRIPTION
+==================================================
+LOCAL NETWORKS: [1, 2, 3]
+--------------------------------------------------
+Local Network: 1
+Internal Variables:  [1, 2, 3, 4, 5]
+External Variables:  []
+Total Variables:  [1, 2, 3, 4, 5]
+Variable Index: 1 -> CNF :[[-5, 3]]
+Variable Index: 2 -> CNF :[[-2, 5]]
+Variable Index: 3 -> CNF :[[-3, 5]]
+Variable Index: 4 -> CNF :[[-5, -4], [-1, 3]]
+Variable Index: 5 -> CNF :[[-5, -1]]
+--------------------------------------------------
+Local Network: 2
+Internal Variables:  [6, 7, 8, 9, 10]
+External Variables:  [17]
+Total Variables:  [6, 7, 8, 9, 10, 17]
+Variable Index: 6 -> CNF :[[-10, 8]]
+Variable Index: 7 -> CNF :[[-7, 10]]
+Variable Index: 8 -> CNF :[[-8, 10]]
+Variable Index: 9 -> CNF :[[17], [-10, -9], [-6, 8]]
+Variable Index: 10 -> CNF :[[17], [-10, -6]]
+--------------------------------------------------
+Local Network: 3
+Internal Variables:  [11, 12, 13, 14, 15]
+External Variables:  [16, 18]
+Total Variables:  [11, 12, 13, 14, 15, 16, 18]
+Variable Index: 11 -> CNF :[[-15, 13]]
+Variable Index: 12 -> CNF :[[-12, 15]]
+Variable Index: 13 -> CNF :[[-13, 15]]
+Variable Index: 14 -> CNF :[[16, 18], [-15, -14], [-11, 13]]
+Variable Index: 15 -> CNF :[[16, 18], [-15, -11]]
+==================================================
+DIRECTED EDGES: [1, 2, 3]
