@@ -101,13 +101,15 @@ def run_audit(input_path: str):
     # Audit Attractor Methods
     for m in attractor_methods:
         cbn = CBN.from_json(input_path)
-        status, msg, duration, count = run_method(cbn, m)
+        status, msg, duration, count = run_method(
+            cbn, m, use_brute_force=True if "sequential" in m else False
+        )
         results.append((m, status, msg, count))
         detailed_logs.append((f"[{status:4}] {m:45} -> {msg}", "ATTRACTORS"))
 
     # For Pairs and Fields, use a base CBN that worked
     base_cbn = CBN.from_json(input_path)
-    base_cbn.find_local_attractors_sequential()
+    base_cbn.find_local_attractors_sequential(use_brute_force=True)
 
     for m in pairs_methods:
         for edge in base_cbn.l_directed_edges:
@@ -203,7 +205,7 @@ def main():
 
     # Consolidado: Usamos los métodos estables validados por la auditoría de paridad
     print("[*] Running standard pipeline (Validation Parity Verified)...")
-    cbn.find_local_attractors_sequential()
+    cbn.find_local_attractors_sequential(use_brute_force=True)
     cbn.find_compatible_pairs()
     cbn.mount_stable_attractor_fields_turbo()
 

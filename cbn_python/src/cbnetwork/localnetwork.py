@@ -316,6 +316,113 @@ class LocalNetwork:
         return aux_sat_matrix
 
     @staticmethod
+    def find_local_attractors_brute_force(local_network, local_scenes=None):
+        """
+        Finds attractors using a brute-force approach (evolving all states).
+        This method is scientific-parity-compatible with the C++ implementation.
+        """
+        local_network.local_scenes = []
+        scenes_to_process = local_scenes if local_scenes else [""]
+
+        scene_index = 1
+        network_attractor_count = 0
+
+        num_internal_vars = len(local_network.internal_variables)
+        internal_indices = local_network.internal_variables
+
+        for scene_str in scenes_to_process:
+            external_values = {}
+            if scene_str:
+                for i, val in enumerate(scene_str):
+                    if i < len(local_network.external_variables):
+                        external_values[local_network.external_variables[i]] = int(val)
+
+            state_map = {}
+            # Build CNF logic in a way that's easy to evaluate
+            # We already have descriptive_function_variables
+
+            for i in range(1 << num_internal_vars):
+                current_state_dict = {}
+                current_state_vals = []
+                for bit in range(num_internal_vars):
+                    val = (i >> bit) & 1
+                    current_state_dict[internal_indices[bit]] = val
+                    current_state_vals.append(val)
+
+                next_state_vals = []
+                for var_idx in internal_indices:
+                    var_model = local_network.get_internal_variable(var_idx)
+                    if var_model:
+                        # Simple evaluation of CNF
+                        satisfied = True
+                        for clause in var_model.cnf_function:
+                            clause_satisfied = False
+                            for lit in clause:
+                                abs_lit = abs(lit)
+                                v_val = current_state_dict.get(
+                                    abs_lit, external_values.get(abs_lit, 0)
+                                )
+                                if lit < 0:
+                                    v_val = 1 - v_val
+                                if v_val == 1:
+                                    clause_satisfied = True
+                                    break
+                            if not clause_satisfied:
+                                satisfied = False
+                                break
+                        next_state_vals.append(1 if satisfied else 0)
+                    else:
+                        next_state_vals.append(0)
+
+                state_map[tuple(current_state_vals)] = tuple(next_state_vals)
+
+            visited = set()
+            scene_attractors = []
+
+            # Sort keys to match C++ std::map iteration order for parity
+            for start_node in sorted(state_map.keys()):
+                if start_node in visited:
+                    continue
+
+                path = []
+                curr = start_node
+                path_set = set()
+
+                while curr not in visited:
+                    visited.add(curr)
+                    path_set.add(curr)
+                    path.append(curr)
+                    curr = state_map[curr]
+
+                    if curr in path_set:
+                        # Attractor found
+                        idx = path.index(curr)
+                        attractor_states_raw = path[idx:]
+                        l_states = [LocalState("".join(map(str, s))) for s in attractor_states_raw]
+
+                        attractor = LocalAttractor(
+                            g_index=None,
+                            l_index=len(scene_attractors) + 1,
+                            l_states=l_states,
+                            network_index=local_network.index,
+                            relation_index=local_network.external_variables,
+                            local_scene=scene_str,
+                        )
+                        scene_attractors.append(attractor)
+                        break
+
+            local_scene_obj = LocalScene(
+                scene_index, scene_str if scene_str else None, local_network.external_variables
+            )
+            local_scene_obj.l_attractors = scene_attractors
+            local_network.local_scenes.append(local_scene_obj)
+            scene_index += 1
+            network_attractor_count += len(scene_attractors)
+
+        local_network.attractor_count = network_attractor_count
+        return local_network
+
+    @staticmethod
     def find_local_scene_attractors(local_network, scene=None):
         def count_state_repeat(target_state, path_candidate):
             # input type [[],[],...[]]

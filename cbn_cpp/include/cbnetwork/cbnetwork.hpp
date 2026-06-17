@@ -98,6 +98,7 @@ public:
     void show_attractor_fields() const;
 
     void save_attractor_fields_to_json(const std::string& filepath);
+    void audit_indices() const;
     void save_network_to_json(const std::string& filepath) const;
     static std::shared_ptr<CBN> load_network_from_json(const std::string& filepath);
     std::shared_ptr<CBN> clone() const;

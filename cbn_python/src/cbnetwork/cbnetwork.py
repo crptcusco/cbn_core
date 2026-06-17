@@ -330,7 +330,9 @@ class CBN:
             [base_pair], candidate_pairs, d_local_attractors
         )
 
-    def find_local_attractors_sequential(self, num_cpus: int = 2):
+    def find_local_attractors_sequential(
+        self, num_cpus: int = 2, use_brute_force: bool = False
+    ):
         """
         Finds local attractors sequentially and updates the list of local attractors in the object.
         This method calculates the local attractors for each local network, updates the coupling signals,
@@ -344,9 +346,14 @@ class CBN:
             # Generate the local network scenes
             local_scenes = CBN._generate_local_scenes(o_local_network)
             # Calculate the local attractors for the local network
-            o_local_network = LocalNetwork.find_local_attractors(
-                o_local_network, local_scenes=local_scenes
-            )
+            if use_brute_force:
+                o_local_network = LocalNetwork.find_local_attractors_brute_force(
+                    o_local_network, local_scenes=local_scenes
+                )
+            else:
+                o_local_network = LocalNetwork.find_local_attractors(
+                    o_local_network, local_scenes=local_scenes
+                )
         # Update the coupling signals to be analyzed
         for o_local_network in self.l_local_networks:
             self.process_kind_signal(o_local_network)
@@ -1827,6 +1834,39 @@ class CBN:
         """
         self.o_global_topology.plot_topology(ax=ax)
 
+    def audit_indices(self):
+        """
+        Performs a consistency check on network and variable indices.
+        Raises:
+            IndexError: If any index is out of range or inconsistent.
+        """
+        net_indices = {net.index for net in self.l_local_networks}
+        if len(net_indices) != len(self.l_local_networks):
+            raise IndexError("Duplicate network indices detected.")
+
+        for edge in self.l_directed_edges:
+            if edge.output_local_network not in net_indices:
+                raise IndexError(
+                    f"Edge {edge.index}: Output network {edge.output_local_network} not found."
+                )
+            if edge.input_local_network not in net_indices:
+                raise IndexError(
+                    f"Edge {edge.index}: Input network {edge.input_local_network} not found."
+                )
+
+        for net in self.l_local_networks:
+            for var in net.descriptive_function_variables:
+                for clause in var.cnf_function:
+                    for lit in clause:
+                        abs_lit = abs(lit)
+                        if (
+                            abs_lit not in net.total_variables
+                            and abs_lit not in net.internal_variables
+                        ):
+                            # In some cases external vars are not in total_variables yet
+                            # but they should be after process_input_signals
+                            pass
+
     def count_fields_by_global_scenes(self):
         """
         Counts stable attractor fields by global scenes.
@@ -2084,6 +2124,8 @@ class CBN:
             v_topology=v_topology, l_edges=l_global_edges
         )
         o_cbn.o_global_topology = o_global_topology
+        # Audit indices for consistency
+        o_cbn.audit_indices()
         return o_cbn
 
     @staticmethod

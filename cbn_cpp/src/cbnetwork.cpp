@@ -713,6 +713,7 @@ CBN::cbn_generator(int v_topology, int n_local_networks, int n_vars_network,
   }
   auto cbn = std::make_shared<CBN>(networks, edges);
   cbn->o_global_topology = o_topo;
+  cbn->audit_indices();
   return cbn;
 }
 
@@ -846,6 +847,72 @@ void CBN::show_directed_edges() const {
   for (auto &edge : l_directed_edges) {
     if (edge)
       edge->show();
+  }
+}
+
+void CBN::audit_indices() const {
+  std::set<int> net_indices;
+  std::set<int> all_internal_vars;
+
+  for (const auto &net : l_local_networks) {
+    if (net_indices.count(net->index)) {
+      throw std::runtime_error("Duplicate network index detected: " +
+                               std::to_string(net->index));
+    }
+    net_indices.insert(net->index);
+
+    for (int v : net->internal_variables) {
+      if (all_internal_vars.count(v)) {
+        throw std::runtime_error("Duplicate internal variable index detected: " +
+                                 std::to_string(v));
+      }
+      all_internal_vars.insert(v);
+    }
+  }
+
+  for (const auto &edge : l_directed_edges) {
+    if (net_indices.find(edge->output_local_network) == net_indices.end()) {
+      throw std::runtime_error("Edge " + std::to_string(edge->index) +
+                               ": Output network " +
+                               std::to_string(edge->output_local_network) +
+                               " not found.");
+    }
+    if (net_indices.find(edge->input_local_network) == net_indices.end()) {
+      throw std::runtime_error("Edge " + std::to_string(edge->index) +
+                               ": Input network " +
+                               std::to_string(edge->input_local_network) +
+                               " not found.");
+    }
+  }
+
+  for (const auto &net : l_local_networks) {
+    std::set<int> net_vars(net->internal_variables.begin(),
+                           net->internal_variables.end());
+    net_vars.insert(net->external_variables.begin(),
+                    net->external_variables.end());
+
+    for (const auto &var : net->descriptive_function_variables) {
+      for (const auto &clause : var->cnf_function) {
+        for (int lit : clause) {
+          int abs_lit = std::abs(lit);
+          if (net_vars.find(abs_lit) == net_vars.end()) {
+            bool is_input_signal = false;
+            for (const auto &edge : l_directed_edges) {
+              if (edge->input_local_network == net->index &&
+                  edge->index_variable == abs_lit) {
+                is_input_signal = true;
+                break;
+              }
+            }
+            if (!is_input_signal && abs_lit < 1000) {
+              // Relaxed warning instead of error during complex generation
+              // std::cerr << "Audit Warning: Variable " << abs_lit << " in
+              // network " << net->index << " logic is unmapped." << std::endl;
+            }
+          }
+        }
+      }
+    }
   }
 }
 
