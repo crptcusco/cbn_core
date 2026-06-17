@@ -14,11 +14,13 @@ class TestCBN:
         net1.index = 1
         net1.output_signals = []
         net1.attractor_count = 5
+        net1.local_scenes = []
 
         net2 = MagicMock(spec=LocalNetwork)
         net2.index = 2
         net2.output_signals = []
         net2.attractor_count = 5
+        net2.local_scenes = []
 
         # Create mock DirectedEdges
         edge1 = MagicMock(spec=DirectedEdge)
@@ -81,12 +83,14 @@ class TestCBN:
         l_local_networks, l_directed_edges = cbn_setup
         cbn = CBN(l_local_networks, l_directed_edges)
 
-        # Mock process_kind_signal
+        # Mock methods to avoid deep calls
         cbn.process_kind_signal = MagicMock()
+        cbn.get_network_by_index = MagicMock()
+        cbn.get_attractors_by_input_signal_value = MagicMock(return_value=[])
 
         # Mock multiprocessing.Pool imported in cbnetwork.cbnetwork
         # (the module imports `Pool` directly, so patch that name)
-        with patch("cbnetwork.cbnetwork.Pool") as mock_pool:
+        with patch("multiprocessing.Pool") as mock_pool:
             # Setup mock pool return
             mock_pool_instance = mock_pool.return_value
             mock_pool_instance.__enter__.return_value = mock_pool_instance
@@ -116,7 +120,7 @@ class TestCBN:
         cbn = CBN(l_local_networks, l_directed_edges)
 
         # Mock multiprocessing.Pool imported in cbnetwork.cbnetwork
-        with patch("cbnetwork.cbnetwork.multiprocessing.Pool") as mock_pool:
+        with patch("multiprocessing.Pool") as mock_pool:
             # Setup mock pool return
             mock_pool_instance = mock_pool.return_value
             mock_pool_instance.__enter__.return_value = mock_pool_instance

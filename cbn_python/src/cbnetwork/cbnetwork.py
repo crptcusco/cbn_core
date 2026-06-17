@@ -6,22 +6,22 @@ import os
 import random  # Library for generating random numbers and shuffling data
 from itertools import product
 from math import ceil
-from multiprocessing import Pool
-from typing import (  # Type hints for better code readability and type safety
-    Any, Dict, List, Optional)
+from typing import Dict, List, Optional
 
 import numpy as np
 from dask import (  # Library for parallel computing using task scheduling with Dask
-    compute, delayed)
+    compute,
+    delayed,
+)
 
 from .cbnetwork_utils import _convert_to_tuple as _convert_to_tuple
 from .cbnetwork_utils import cartesian_product_mod as _cartesian_product_mod
 from .cbnetwork_utils import evaluate_pair as _evaluate_pair
 from .cbnetwork_utils import flatten as _flatten
-from .cbnetwork_utils import \
-    process_single_base_pair as _process_single_base_pair
+from .cbnetwork_utils import process_single_base_pair as _process_single_base_pair
 from .coupling import CouplingStrategy, OrCoupling
 from .directededge import DirectedEdge
+
 # internal imports
 from .globalscene import GlobalScene
 from .globaltopology import GlobalTopology
@@ -483,7 +483,7 @@ class CBN:
         self.generate_attractor_dictionary()
         CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS BRUTE FORCE PARALLEL")
 
-    def find_local_attractors_parallel_with_weigths(self, num_cpus=None):
+    def find_local_attractors_parallel_with_weights(self, num_cpus=None):
         """
         Finds local attractors in parallel with multiprocessing, balancing the load
         using a 'bucket' system based on the weight of each task.
@@ -527,7 +527,7 @@ class CBN:
             )
         # Execute in parallel with multiprocessing
         all_tasks = [task for bucket in buckets for task in bucket["tasks"]]
-        with Pool(processes=num_cpus) as pool:
+        with multiprocessing.Pool(processes=num_cpus) as pool:
             results = pool.map(CBN.process_local_network_mp, all_tasks)
         # Check if any network disappeared
         if len(results) != len(self.l_local_networks):
@@ -820,9 +820,11 @@ class CBN:
         """
         Numba-accelerated version of Step 2: Compatible Attractor Pairs.
         """
-        from cbnetwork.acceleration import (HAS_NUMBA,
-                                            evaluate_attractors_signal_kernel,
-                                            find_compatible_pairs_kernel)
+        from cbnetwork.acceleration import (
+            HAS_NUMBA,
+            evaluate_attractors_signal_kernel,
+            find_compatible_pairs_kernel,
+        )
 
         if not HAS_NUMBA:
             return self.find_compatible_pairs()
@@ -966,6 +968,25 @@ class CBN:
             num_cpus = multiprocessing.cpu_count()
         tasks_with_weight = []
         signal_map = {}
+
+        # Pre-collect all necessary attractor mappings
+        var_to_attractors = {}
+        all_index_vars = set()
+        for net in self.l_local_networks:
+            for edge in self.get_output_edges_by_network_index(net.index):
+                all_index_vars.add(edge.index_variable)
+        for idx_var in all_index_vars:
+            var_to_attractors[idx_var] = {
+                0: [
+                    a.g_index
+                    for a in self.get_attractors_by_input_signal_value(idx_var, 0)
+                ],
+                1: [
+                    a.g_index
+                    for a in self.get_attractors_by_input_signal_value(idx_var, 1)
+                ],
+            }
+
         # Iterate over each local network and its output signals
         for local_network in self.l_local_networks:
             output_edges = self.get_output_edges_by_network_index(local_network.index)
@@ -984,7 +1005,7 @@ class CBN:
                 l_attractors_input_1 = [
                     attr.g_index for attr in output_signal.d_out_value_to_attractor[1]
                 ]
-                # Define the task's weight (you can adjust this formula if needed)
+                # Define the task's weight
                 weight = (
                     len(l_attractors_input_0) + len(l_attractors_input_1)
                 ) * n_local_attractors
@@ -992,8 +1013,7 @@ class CBN:
                     signal_index,
                     l_attractors_input_0,
                     l_attractors_input_1,
-                    output_signal.index_variable,
-                    self.get_attractors_by_input_signal_value,
+                    var_to_attractors[output_signal.index_variable],
                 )
                 tasks_with_weight.append((weight, task_args))
         # Sort the tasks by weight, from highest to lowest
@@ -1020,7 +1040,7 @@ class CBN:
         for bucket in buckets:
             all_tasks.extend(bucket["tasks"])
         # Execute all tasks in parallel using multiprocessing
-        with Pool(processes=num_cpus) as pool:
+        with multiprocessing.Pool(processes=num_cpus) as pool:
             results = pool.map(CBN.process_output_signal_mp, all_tasks)
         logging.getLogger(__name__).info("Number of tasks processed: %d", len(results))
         total_pairs = 0
@@ -1227,8 +1247,7 @@ class CBN:
         Numba-accelerated version of Step 3: Mount Stable Attractor Fields.
         Uses numerical arrays and JIT-compiled kernels for faster field assembly.
         """
-        from cbnetwork.acceleration import (HAS_NUMBA,
-                                            filter_compatible_pairs_kernel)
+        from cbnetwork.acceleration import HAS_NUMBA, filter_compatible_pairs_kernel
 
         if not HAS_NUMBA:
             return self.mount_stable_attractor_fields()
@@ -1239,7 +1258,7 @@ class CBN:
         max_attr_idx = max(self.d_local_attractors.keys())
         attr_to_network = np.zeros(max_attr_idx + 1, dtype=np.int32)
         for attr_idx, attr_data in self.d_local_attractors.items():
-            # d_local_attractors[idx] = (network_idx, scene_idx, attractor_obj)
+            # d_local_attractors[idx] = (network_idx, scene_idx, attractor_index)
             net_idx = attr_data[0]
             attr_to_network[attr_idx] = net_idx
         # Initialize with first edge
@@ -1345,7 +1364,7 @@ class CBN:
                 (bp, l_candidate_pairs, self.d_local_attractors)
                 for bp in base_pairs_list
             ]
-            with Pool(processes=num_cpus) as pool:
+            with multiprocessing.Pool(processes=num_cpus) as pool:
                 results = pool.starmap(CBN.process_single_base_pair, tasks_args)
             new_base_pairs = set()
             for r in results:
@@ -1440,7 +1459,7 @@ class CBN:
             for i, chunk in enumerate(chunks):
                 logger.info("  Chunk %d: %d pairs", i, len(chunk))
             # Execute in parallel: for each chunk, call cartesian_product_mod
-            with Pool(processes=num_cpus) as pool:
+            with multiprocessing.Pool(processes=num_cpus) as pool:
                 args = [
                     (chunk, candidate_pairs, self.d_local_attractors)
                     for chunk in chunks
@@ -2106,6 +2125,11 @@ class CBN:
                 l_output_variables=l_output_variables,
                 coupling_function=coupling_function,
             )
+            # Check if strategy has bitmask support
+            if hasattr(coupling_strategy, "coupling_type"):
+                o_directed_edge.coupling_type = coupling_strategy.coupling_type
+            if hasattr(coupling_strategy, "bitmask"):
+                o_directed_edge.bitmask = coupling_strategy.bitmask
             i_last_variable += 1
             i_directed_edge += 1
             # Add the DirectedEdge object to the list
@@ -2390,6 +2414,9 @@ class CBN:
                 "output_local_network": edge.output_local_network,
                 "output_variables": edge.l_output_variables,
                 "coupling_function": edge.coupling_function,
+                "type": edge.coupling_type,
+                "k_inputs": edge.k_inputs,
+                "bitmask": edge.bitmask,
             }
             if hasattr(edge, "true_table") and edge.true_table:
                 edge_data["true_table"] = edge.true_table
@@ -2437,6 +2464,8 @@ class CBN:
             in_net = edge_data.get("input_local_network", edge_data.get("target"))
             out_vars = edge_data.get("output_variables", edge_data.get("output_vars"))
             coup_func = edge_data.get("coupling_function", edge_data.get("function"))
+            coup_type = edge_data.get("type", edge_data.get("coupling_type"))
+            bitmask = edge_data.get("bitmask")
 
             edge = DirectedEdge(
                 index=edge_data["index"],
@@ -2445,6 +2474,8 @@ class CBN:
                 output_local_network=out_net,
                 l_output_variables=out_vars,
                 coupling_function=coup_func,
+                coupling_type=coup_type,
+                bitmask=bitmask,
             )
             if "true_table" in edge_data:
                 edge.true_table = edge_data["true_table"]

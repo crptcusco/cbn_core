@@ -1,9 +1,9 @@
 # local imports
 import time
 
-from classes.cbnetwork import CBN
-from classes.globaltopology import GlobalTopology
-from classes.localtemplates import LocalNetworkTemplate
+from cbnetwork.cbnetwork import CBN
+from cbnetwork.globaltopology import GlobalTopology
+from cbnetwork.localtemplates import LocalNetworkTemplate
 
 # TEST THE DIFFERENT NUMBER OF VARIABLES WITH ALEATORY TEMPLATE
 

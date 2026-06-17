@@ -22,6 +22,8 @@ class DirectedEdge:
         output_local_network,
         l_output_variables,
         coupling_function,
+        coupling_type=None,
+        bitmask=None,
     ):
         """
         Initialize a DirectedEdge instance.
@@ -33,6 +35,8 @@ class DirectedEdge:
             output_local_network (int): The index of the output local network.
             l_output_variables (list): List of output variables.
             coupling_function (str): The coupling function.
+            coupling_type (str, optional): The type of coupling function. Defaults to None.
+            bitmask (int, optional): The bitmask representing the truth table. Defaults to None.
         """
         self.index = index
         self.index_variable = index_variable_signal
@@ -40,6 +44,9 @@ class DirectedEdge:
         self.output_local_network = output_local_network
         self.l_output_variables = l_output_variables
         self.coupling_function = coupling_function
+        self.coupling_type = coupling_type
+        self.k_inputs = len(l_output_variables)
+        self.bitmask = bitmask
 
         # Calculated properties
         # True table for signal with the output variables
@@ -102,8 +109,15 @@ class DirectedEdge:
 
         This method parses the Boolean formula, evaluates it for all possible permutations of output variables,
         and constructs a truth table mapping input combinations to their corresponding output values.
+        Alternatively, if a bitmask is provided, it uses it directly.
         """
         r_true_table = {}  # Dictionary to store the truth table results
+
+        if self.bitmask is not None:
+            for i in range(1 << self.k_inputs):
+                aux_key = "".join(str((i >> j) & 1) for j in range(self.k_inputs))
+                r_true_table[aux_key] = str((self.bitmask >> i) & 1)
+            return r_true_table
 
         # Tokenization
         # Regular expression to match tokens in the Boolean formula

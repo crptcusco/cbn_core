@@ -4,12 +4,12 @@ import pickle
 import time
 
 import pandas as pd
+from cbnetwork.cbnetwork import CBN
+from cbnetwork.globaltopology import GlobalTopology
 
-from classes.cbnetwork import CBN
-from classes.globaltopology import GlobalTopology
 # Local imports
-from classes.localtemplates import LocalNetworkTemplate
-from classes.utils.customtext import CustomText
+from cbnetwork.localtemplates import LocalNetworkTemplate
+from cbnetwork.utils.customtext import CustomText
 
 # Experiment parameters
 N_SAMPLES = 1001

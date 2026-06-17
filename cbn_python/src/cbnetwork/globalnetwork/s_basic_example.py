@@ -1,7 +1,7 @@
 import logging
 
-from classes.cbnetwork import CBN
-from classes.utils.logging_config import setup_logging
+from cbnetwork.cbnetwork import CBN
+from cbnetwork.utils.logging_config import setup_logging
 from globalnetwork import GlobalNetwork as gn
 
 setup_logging()

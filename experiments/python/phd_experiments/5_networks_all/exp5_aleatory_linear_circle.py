@@ -6,10 +6,10 @@ import time
 import pandas as pd
 
 # local imports
-from classes.cbnetwork import CBN
-from classes.globaltopology import GlobalTopology
-from classes.localtemplates import LocalNetworkTemplate
-from classes.utils.customtext import CustomText
+from cbnetwork.cbnetwork import CBN
+from cbnetwork.globaltopology import GlobalTopology
+from cbnetwork.localtemplates import LocalNetworkTemplate
+from cbnetwork.utils.customtext import CustomText
 
 """
 Experiment 5 - Test the path and 3_ring_aleatory structures 

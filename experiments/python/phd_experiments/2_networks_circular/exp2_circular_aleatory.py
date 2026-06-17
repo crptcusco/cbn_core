@@ -6,8 +6,8 @@ import time
 import pandas as pd
 
 # local imports
-from classes.localtemplates import PathCircleTemplate
-from classes.utils.customtext import CustomText
+from cbnetwork.localtemplates import PathCircleTemplate
+from cbnetwork.utils.customtext import CustomText
 
 """
 Experiment 6 - Test the path and 3_ring_aleatory structures 

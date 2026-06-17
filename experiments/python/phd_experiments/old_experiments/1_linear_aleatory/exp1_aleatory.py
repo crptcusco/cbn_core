@@ -4,8 +4,8 @@ import time
 import pandas as pd
 
 # local imports
-from classes.cbnetwork import CBN
-from classes.utils.customtext import CustomText
+from cbnetwork.cbnetwork import CBN
+from cbnetwork.utils.customtext import CustomText
 
 """
 Test the linear structure 

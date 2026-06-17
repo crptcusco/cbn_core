@@ -11,9 +11,10 @@ import pandas as pd
 root_dir = Path(__file__).resolve().parents[4]
 sys.path.append(str(root_dir / "cbn_python" / "src"))
 
+from cbnetwork.localtemplates import PathCircleTemplate
+
 # local imports
 from cbnetwork.utils.customtext import CustomText
-from cbnetwork.localtemplates import PathCircleTemplate
 
 """
 Experiment 1 - Test the path and 3_ring_aleatory structures 
