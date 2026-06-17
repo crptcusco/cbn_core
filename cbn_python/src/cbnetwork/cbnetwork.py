@@ -162,24 +162,6 @@ class CBN:
             print(f"Error processing network {o_local_network.index}: {e}")
             return o_local_network
 
-    @staticmethod
-    def process_local_network_brute_force_mp(o_local_network):
-        """
-        Processes a local network to find its attractors using the brute-force routine.
-        This mirrors `process_local_network_mp` but calls
-        `LocalNetwork.find_local_attractors_brute_force` instead.
-        """
-        try:
-            l_local_scenes = CBN._generate_local_scenes(o_local_network)
-            o_local_network = LocalNetwork.find_local_attractors_brute_force(
-                o_local_network, l_local_scenes
-            )
-            return o_local_network
-        except Exception as e:
-            print(
-                f"Error processing (brute force) network {o_local_network.index}: {e}"
-            )
-            return o_local_network
 
     @staticmethod
     def process_output_signal_mp(args):
@@ -376,57 +358,6 @@ class CBN:
         logger.info("Number of local attractors: %d", self._count_total_attractors())
         CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS")
 
-    def find_local_attractors_brute_force_sequential(self):
-        """
-        Finds local attractors using brute force sequentially and updates the list of local attractors.
-        This method calculates the local attractors using the brute-force engine
-        for each local network, updates the coupling signals, assigns global indices,
-        and generates the attractor dictionary.
-        """
-        CustomText.make_title("FIND LOCAL ATTRACTORS (BRUTE FORCE)")
-        for o_local_network in self.l_local_networks:
-            # Generate the local network scenes
-            local_scenes = CBN._generate_local_scenes(o_local_network)
-            # Calculate the local attractors using brute force
-            o_local_network = LocalNetwork.find_local_attractors_brute_force(
-                o_local_network, local_scenes=local_scenes
-            )
-        # Update the coupling signals
-        for o_local_network in self.l_local_networks:
-            self.process_kind_signal(o_local_network)
-        # Assign global indices
-        self._assign_global_indices_to_attractors()
-        # Generate the attractor dictionary
-        self.generate_attractor_dictionary()
-        logger = logging.getLogger(__name__)
-        logger.info(
-            "Number of local attractors (BF): %d", self._count_total_attractors()
-        )
-        CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS (BRUTE FORCE)")
-
-    def find_local_attractors_brute_force_turbo_sequential(self):
-        """
-        Finds local attractors using Numba-accelerated brute force sequentially.
-        """
-        CustomText.make_title("FIND LOCAL ATTRACTORS (TURBO BRUTE FORCE)")
-        for o_local_network in self.l_local_networks:
-            # Generate the local network scenes
-            local_scenes = CBN._generate_local_scenes(o_local_network)
-            LocalNetwork.find_local_attractors_brute_force_turbo(
-                o_local_network, local_scenes=local_scenes
-            )
-        # Update the coupling signals
-        for o_local_network in self.l_local_networks:
-            self.process_kind_signal(o_local_network)
-        # Assign global indices
-        self._assign_global_indices_to_attractors()
-        # Generate the attractor dictionary
-        self.generate_attractor_dictionary()
-        logger = logging.getLogger(__name__)
-        logger.info(
-            "Number of local attractors (Turbo): %d", self._count_total_attractors()
-        )
-        CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS (TURBO BRUTE FORCE)")
 
     def find_local_attractors_parallel(self, num_cpus=None):
         """Finds the attractors for each local network in parallel.
@@ -457,31 +388,6 @@ class CBN:
         self.generate_attractor_dictionary()
         CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS PARALLEL")
 
-    def find_local_attractors_brute_force_parallel(self, num_cpus=None):
-        """
-        Parallelizes the process of finding local attractors using brute force.
-        For each local network in self.l_local_networks:
-          1. Generate its local scenes.
-          2. Calculate its local attractors using brute force.
-        Then, in the main process, each network is updated with its respective signal processing,
-        global indices are assigned to each attractor, and the attractor dictionary is generated.
-        """
-        CustomText.make_title("FIND LOCAL ATTRACTORS BRUTE FORCE PARALLEL")
-        if num_cpus is None or num_cpus <= 0:
-            num_cpus = multiprocessing.cpu_count()
-        # Create a process pool; the number of processes can be adjusted if necessary
-        with multiprocessing.Pool(processes=num_cpus) as pool:
-            # map() will send each element of self.l_local_networks to the process_local_network_brute_force_mp function
-            updated_networks = pool.map(
-                CBN.process_local_network_brute_force_mp, self.l_local_networks
-            )
-        # Update the list of local networks with the obtained results
-        self.l_local_networks = list(updated_networks)
-        # Assign global indices to each attractor
-        self._assign_global_indices_to_attractors()
-        # Generate the attractor dictionary
-        self.generate_attractor_dictionary()
-        CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS BRUTE FORCE PARALLEL")
 
     def find_local_attractors_parallel_with_weights(self, num_cpus=None):
         """
@@ -1193,54 +1099,56 @@ class CBN:
 
     def mount_stable_attractor_fields(self) -> None:
         """Assembles the global attractors (Attractor Fields) of the CBN.
-        This is the final analysis step. It takes the compatible pairs found in
-        the previous step and chains them together to build "Attractor Fields".
-        An attractor field represents a stable global state of the entire
-        Coupled Boolean Network, where every local network is in a stable
-        attractor and all coupling signals between them are consistent.
-        This implementation uses a fusion-based approach, starting with
-        individual compatible pairs and iteratively merging them into larger fields
-        if they share a common local attractor.
-        The results are stored in the `d_attractor_fields` dictionary.
+        This implementation correctly uses a combinatorial approach to find all
+        stable global states where all coupling signals are consistent.
         """
         CustomText.make_title("FIND ATTRACTOR FIELDS")
-        # 1. Collect all compatible pairs from all edges into a single list
-        all_pairs = []
-        for edge in self.l_directed_edges:
-            all_pairs.extend(edge.d_comp_pairs_attractors_by_value.get(0, []))
-            all_pairs.extend(edge.d_comp_pairs_attractors_by_value.get(1, []))
-        if not all_pairs:
+        if not self.l_directed_edges:
             self.d_attractor_fields = {}
-            CustomText.make_sub_sub_title("END MOUNT ATTRACTOR FIELDS")
             return
-        # 2. Initialize fields, where each field is initially a single pair
-        fields = [set(pair) for pair in all_pairs]
-        # 3. Iteratively merge fields that have a non-empty intersection
-        merged = True
-        while merged:
-            merged = False
-            i = 0
-            while i < len(fields):
-                j = i + 1
-                while j < len(fields):
-                    # If two fields share any attractor, merge them
-                    if fields[i].intersection(fields[j]):
-                        fields[i].update(fields[j])
-                        fields.pop(j)
-                        merged = True
-                    else:
-                        j += 1
-                i += 1
-        # 4. Remove duplicate fields
-        unique_fields = []
-        for field in fields:
-            if field not in unique_fields:
-                unique_fields.append(field)
-        # 5. Generate the final dictionary of attractor fields
-        self.d_attractor_fields = {
-            i + 1: sorted(list(field)) for i, field in enumerate(unique_fields)
-        }
-        CustomText.make_sub_sub_title("END MOUNT ATTRACTOR FIELDS")
+
+        # 1. Order edges by compatibility (Step 1)
+        self.order_edges_by_compatibility()
+
+        # 2. Initialize fields from the first edge (Step 2)
+        first_edge = self.l_directed_edges[0]
+        initial_pairs = (
+            first_edge.d_comp_pairs_attractors_by_value.get(0, [])
+            + first_edge.d_comp_pairs_attractors_by_value.get(1, [])
+        )
+        if not initial_pairs:
+            self.d_attractor_fields = {}
+            return
+
+        # Convert initial pairs to base list for cartesian product
+        l_base_pairs = list(initial_pairs)
+
+        # 3. Iteratively refine with remaining edges (Step 3)
+        for directed_edge in self.l_directed_edges[1:]:
+            candidate_pairs = (
+                directed_edge.d_comp_pairs_attractors_by_value.get(0, [])
+                + directed_edge.d_comp_pairs_attractors_by_value.get(1, [])
+            )
+            if not candidate_pairs:
+                l_base_pairs = []
+                break
+
+            l_base_pairs = self.cartesian_product_mod(
+                l_base_pairs, candidate_pairs, self.d_local_attractors
+            )
+            if not l_base_pairs:
+                break
+
+        # 4. Generate final attractor fields dictionary
+        self.d_attractor_fields = {}
+        for i, base_element in enumerate(l_base_pairs, start=1):
+            # Flatten, remove duplicates and sort
+            flat_field = list(set(CBN.flatten(base_element)))
+            self.d_attractor_fields[i] = sorted(flat_field)
+
+        CustomText.make_sub_sub_title(
+            f"END MOUNT STABLE ATTRACTOR FIELDS (Total:{len(l_base_pairs)})"
+        )
 
     def mount_stable_attractor_fields_turbo(self) -> None:
         """

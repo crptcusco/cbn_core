@@ -23,7 +23,7 @@ def run_tiny_benchmark():
     )
 
     # STEP 1 + 2
-    o_cbn.find_local_attractors_brute_force_turbo_sequential()
+    o_cbn.find_local_attractors_sequential()
     o_cbn.find_compatible_pairs()
 
     # STEP 3 - Sequential

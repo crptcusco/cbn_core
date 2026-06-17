@@ -34,8 +34,8 @@ def run_benchmark_step3_small():
         n_max_of_literals=2,
     )
 
-    # STEP 1 (Turbo)
-    o_cbn.find_local_attractors_brute_force_turbo_sequential()
+    # STEP 1 (Parallel)
+    o_cbn.find_local_attractors_parallel()
 
     # STEP 2 (Sequential)
     o_cbn.find_compatible_pairs()

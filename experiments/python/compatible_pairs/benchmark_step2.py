@@ -42,8 +42,8 @@ def run_benchmark_step2():
             n_max_of_literals=2,
         )
 
-        # 2. RUN STEP 1 (Turbo) - We need attractors first
-        o_cbn.find_local_attractors_brute_force_turbo_sequential()
+        # 2. RUN STEP 1 (Parallel) - We need attractors first
+        o_cbn.find_local_attractors_parallel()
 
         # Helper to count total pairs
         def count_total_pairs(cbn):

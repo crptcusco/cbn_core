@@ -41,8 +41,8 @@ def run_benchmark_step3():
             n_max_of_literals=2,
         )
 
-        # 2. RUN STEP 1 (Turbo)
-        o_cbn.find_local_attractors_brute_force_turbo_sequential()
+        # 2. RUN STEP 1 (Parallel)
+        o_cbn.find_local_attractors_parallel()
 
         # 3. RUN STEP 2 (Sequential - fastest)
         o_cbn.find_compatible_pairs()

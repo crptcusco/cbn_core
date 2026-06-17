@@ -7,14 +7,16 @@ import sys
 import time
 from pathlib import Path
 
-# Configuración del experimento
-N_SAMPLES = 100
-NETWORKS = 12
-VARS = 10
+# ======================================================================
+# CONFIGURACIÓN DEL EXPERIMENTO (SMOKE TEST MODE)
+# ======================================================================
+N_SAMPLES = 5   # Reducido a 5 para una validación rápida
+NETWORKS = 6    # 6 redes locales
+VARS = 5        # 5 variables por red (32 estados por subred)
 
-# Topologías a incluir para heterogeneidad
-# 1: complete, 3: cycle, 7: dorogovtsev_mendes, 9: scale_free
-TOPOLOGIES = [1, 3, 7, 9]
+# Topologías a incluir: Se fija en 2 para asegurar la cadena lineal unidireccional
+# (IDs estándar: 1: complete, 2: linear/path, 3: cycle, 7: dorogovtsev_mendes, 9: scale_free)
+TOPOLOGIES = [2] 
 
 MIX_DIR = Path(__file__).resolve().parent
 ROOT_DIR = MIX_DIR.parents[1]
@@ -44,7 +46,7 @@ def compare_dynamics(py_file, cpp_file):
 
     def get_canonical_attractors(data):
         attractors = data.get("attractors", [])
-        # Each attractor has 'states' which is a sorted list of indices (integers).
+        # Cada atractor tiene 'states' que es una lista ordenada de enteros
         return sorted(
             [tuple(sorted([int(s) for s in a["states"]])) for a in attractors]
         )
@@ -72,9 +74,11 @@ def clean_old_files(sample_id):
 
 
 def main():
-    print("=== CBN HYBRID BENCHMARK ORCHESTRATOR ===")
+    print("=== CBN HYBRID BENCHMARK ORCHESTRATOR (SMOKE TEST) ===")
     print(f"Root: {ROOT_DIR}")
     print(f"Binary: {CPP_BINARY}")
+    print(f"Config: {NETWORKS} networks x {VARS} variables | Lineal Topology")
+    print("=" * 60)
 
     if not CPP_BINARY.exists():
         print(f"[Error] C++ Binary not found at {CPP_BINARY}. Please compile first.")
@@ -95,7 +99,7 @@ def main():
 
         for i in range(1, N_SAMPLES + 1):
             topo = random.choice(TOPOLOGIES)
-            print(f"\n[*] Sample {i}/{N_SAMPLES} | Topology: {topo}")
+            print(f"\n[*] Sample {i}/{N_SAMPLES} | Topology (Linear): {topo}")
 
             clean_old_files(i)
 
@@ -103,6 +107,7 @@ def main():
             py_dyn_file = MIX_DIR / f"py_sample_{i}_dynamics.json"
             cpp_dyn_file = MIX_DIR / f"cpp_sample_{i}_dynamics.json"
 
+            # 1. Generar la red sintética lineal pequeña
             success, out = run_command(
                 [
                     sys.executable,
@@ -120,6 +125,7 @@ def main():
             if not success:
                 break
 
+            # 2. Ejecutar el Solver de Python verificado (Pipeline limpio sin Fuerza Bruta)
             success, out = run_command(
                 [
                     sys.executable,
@@ -137,6 +143,7 @@ def main():
                 py_res = json.load(f)
                 py_time = py_res["performance"]["total_ms"]
 
+            # 3. Ejecutar el Solver de C++
             success, out = run_command(
                 [
                     str(CPP_BINARY),
@@ -157,6 +164,7 @@ def main():
                 )
                 continue
 
+            # Capturar y renombrar la salida hardcodeada de C++ para la muestra actual
             cpp_gen_file = MIX_DIR / "cbn_sample_1_AdvancedParallel_dynamics.json"
             if cpp_gen_file.exists():
                 os.rename(cpp_gen_file, cpp_dyn_file)
@@ -168,6 +176,7 @@ def main():
                 cpp_res = json.load(f)
                 cpp_time = cpp_res["performance"]["total_ms"]
 
+            # 4. Control de calidad: Verificación canónica de paridad científica
             is_equal, result = compare_dynamics(py_dyn_file, cpp_dyn_file)
 
             if is_equal:
@@ -187,12 +196,12 @@ def main():
                     }
                 )
             else:
-                print(f"[ERROR] PARITY DIVERGENCE in sample {i}!")
+                print(f"🚨 [ERROR] PARITY DIVERGENCE in sample {i}!")
                 if isinstance(result, tuple):
-                    print(f"Python fields: {len(result[0])}")
-                    print(f"C++ fields: {len(result[1])}")
+                    print(f"   -> Python attractor fields found: {len(result[0])}")
+                    print(f"   -> C++ attractor fields found: {len(result[1])}")
                 else:
-                    print(f"Error: {result}")
+                    print(f"   -> Error detail: {result}")
                 writer.writerow(
                     {"sample_id": i, "topology": topo, "status": "PARITY_ERROR"}
                 )

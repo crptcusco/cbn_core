@@ -9,8 +9,6 @@
 - **Métodos disponibles:**
   - `find_local_attractors_sequential()` - SAT solver secuencial
   - `find_local_attractors_parallel()` - SAT solver paralelo
-  - `find_local_attractors_brute_force_sequential()` - Brute force Python
-  - `find_local_attractors_brute_force_turbo_sequential()` - **Turbo (Numba)** ⚡ 35x-100x más rápido
 
 ### Paso 2: Find Compatible Pairs
 - **Objetivo:** Identificar pares de atractores que son compatibles a través de señales de acoplamiento

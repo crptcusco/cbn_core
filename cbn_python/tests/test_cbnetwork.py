@@ -115,33 +115,3 @@ class TestCBN:
             assert edge.d_comp_pairs_attractors_by_value[0] == [(1, 2)]
             assert edge.d_comp_pairs_attractors_by_value[1] == [(3, 4)]
 
-    def test_find_local_attractors_brute_force_parallel(self, cbn_setup):
-        l_local_networks, l_directed_edges = cbn_setup
-        cbn = CBN(l_local_networks, l_directed_edges)
-
-        # Mock multiprocessing.Pool imported in cbnetwork.cbnetwork
-        with patch("multiprocessing.Pool") as mock_pool:
-            # Setup mock pool return
-            mock_pool_instance = mock_pool.return_value
-            mock_pool_instance.__enter__.return_value = mock_pool_instance
-
-            # Mock map result - return the networks (mocked)
-            # The method expects updated networks
-            mock_pool_instance.map.return_value = l_local_networks
-
-            # Mock helper methods called after map
-            cbn._assign_global_indices_to_attractors = MagicMock()
-            cbn.generate_attractor_dictionary = MagicMock()
-
-            cbn.find_local_attractors_brute_force_parallel(num_cpus=1)
-
-            # Verify map was called with correct function
-            # We can't easily check the function reference if it's a static method on class vs instance
-            # But we can check it was called.
-            assert mock_pool_instance.map.called
-            args, _ = mock_pool_instance.map.call_args
-            assert args[1] == l_local_networks
-
-            # Verify post-processing methods called
-            assert cbn._assign_global_indices_to_attractors.called
-            assert cbn.generate_attractor_dictionary.called

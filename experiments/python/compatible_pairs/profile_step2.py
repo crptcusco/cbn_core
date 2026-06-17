@@ -23,8 +23,8 @@ def profile_step2():
         n_max_of_literals=2,
     )
 
-    print("Finding attractors (Turbo)...")
-    o_cbn.find_local_attractors_brute_force_turbo_sequential()
+    print("Finding attractors (Parallel)...")
+    o_cbn.find_local_attractors_parallel()
 
     print("Profiling find_compatible_pairs...")
     pr = cProfile.Profile()
