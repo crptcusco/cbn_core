@@ -66,14 +66,23 @@ class LocalNetwork:
         """
         self.input_signals = input_signals
         # Process the input signals and append their indices to the external variables list
+        self.external_variables = []
         for signal in input_signals:
-            self.external_variables.append(signal.index_variable)
+            if signal.index_variable not in self.external_variables:
+                self.external_variables.append(signal.index_variable)
 
-        # Add internal variables to the total variables list
-        self.total_variables.extend(self.internal_variables.copy())
+        # Re-build total variables list
+        self.total_variables = list(self.internal_variables)
 
         # Add external variables to the total variables list
-        self.total_variables.extend(self.external_variables.copy())
+        for var in self.external_variables:
+            if var not in self.total_variables:
+                self.total_variables.append(var)
+
+        # Add any descriptive function variables that might be missing (e.g. output signals)
+        for var_model in self.descriptive_function_variables:
+            if var_model.index not in self.total_variables:
+                self.total_variables.append(var_model.index)
 
         # Calculate the number of total variables
         self.total_variables_count = len(self.total_variables)

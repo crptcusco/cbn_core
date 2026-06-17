@@ -966,6 +966,19 @@ class CBN:
             num_cpus = multiprocessing.cpu_count()
         tasks_with_weight = []
         signal_map = {}
+
+        # Pre-collect all necessary attractor mappings
+        var_to_attractors = {}
+        all_index_vars = set()
+        for net in self.l_local_networks:
+            for edge in self.get_output_edges_by_network_index(net.index):
+                all_index_vars.add(edge.index_variable)
+        for idx_var in all_index_vars:
+            var_to_attractors[idx_var] = {
+                0: [a.g_index for a in self.get_attractors_by_input_signal_value(idx_var, 0)],
+                1: [a.g_index for a in self.get_attractors_by_input_signal_value(idx_var, 1)],
+            }
+
         # Iterate over each local network and its output signals
         for local_network in self.l_local_networks:
             output_edges = self.get_output_edges_by_network_index(local_network.index)
@@ -984,7 +997,7 @@ class CBN:
                 l_attractors_input_1 = [
                     attr.g_index for attr in output_signal.d_out_value_to_attractor[1]
                 ]
-                # Define the task's weight (you can adjust this formula if needed)
+                # Define the task's weight
                 weight = (
                     len(l_attractors_input_0) + len(l_attractors_input_1)
                 ) * n_local_attractors
@@ -992,8 +1005,7 @@ class CBN:
                     signal_index,
                     l_attractors_input_0,
                     l_attractors_input_1,
-                    output_signal.index_variable,
-                    self.get_attractors_by_input_signal_value,
+                    var_to_attractors[output_signal.index_variable],
                 )
                 tasks_with_weight.append((weight, task_args))
         # Sort the tasks by weight, from highest to lowest
@@ -2106,6 +2118,11 @@ class CBN:
                 l_output_variables=l_output_variables,
                 coupling_function=coupling_function,
             )
+            # Check if strategy has bitmask support
+            if hasattr(coupling_strategy, "coupling_type"):
+                o_directed_edge.coupling_type = coupling_strategy.coupling_type
+            if hasattr(coupling_strategy, "bitmask"):
+                o_directed_edge.bitmask = coupling_strategy.bitmask
             i_last_variable += 1
             i_directed_edge += 1
             # Add the DirectedEdge object to the list
@@ -2390,6 +2407,9 @@ class CBN:
                 "output_local_network": edge.output_local_network,
                 "output_variables": edge.l_output_variables,
                 "coupling_function": edge.coupling_function,
+                "type": edge.coupling_type,
+                "k_inputs": edge.k_inputs,
+                "bitmask": edge.bitmask,
             }
             if hasattr(edge, "true_table") and edge.true_table:
                 edge_data["true_table"] = edge.true_table
@@ -2437,6 +2457,8 @@ class CBN:
             in_net = edge_data.get("input_local_network", edge_data.get("target"))
             out_vars = edge_data.get("output_variables", edge_data.get("output_vars"))
             coup_func = edge_data.get("coupling_function", edge_data.get("function"))
+            coup_type = edge_data.get("type", edge_data.get("coupling_type"))
+            bitmask = edge_data.get("bitmask")
 
             edge = DirectedEdge(
                 index=edge_data["index"],
@@ -2445,6 +2467,8 @@ class CBN:
                 output_local_network=out_net,
                 l_output_variables=out_vars,
                 coupling_function=coup_func,
+                coupling_type=coup_type,
+                bitmask=bitmask,
             )
             if "true_table" in edge_data:
                 edge.true_table = edge_data["true_table"]

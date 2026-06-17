@@ -81,8 +81,10 @@ class TestCBN:
         l_local_networks, l_directed_edges = cbn_setup
         cbn = CBN(l_local_networks, l_directed_edges)
 
-        # Mock process_kind_signal
+        # Mock methods to avoid deep calls
         cbn.process_kind_signal = MagicMock()
+        cbn.get_network_by_index = MagicMock()
+        cbn.get_attractors_by_input_signal_value = MagicMock(return_value=[])
 
         # Mock multiprocessing.Pool imported in cbnetwork.cbnetwork
         # (the module imports `Pool` directly, so patch that name)
