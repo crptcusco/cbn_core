@@ -489,7 +489,7 @@ class CBN:
         self.generate_attractor_dictionary()
         CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS BRUTE FORCE PARALLEL")
 
-    def find_local_attractors_parallel_with_weigths(self, num_cpus=None):
+    def find_local_attractors_parallel_with_weights(self, num_cpus=None):
         """
         Finds local attractors in parallel with multiprocessing, balancing the load
         using a 'bucket' system based on the weight of each task.
@@ -1264,7 +1264,7 @@ class CBN:
         max_attr_idx = max(self.d_local_attractors.keys())
         attr_to_network = np.zeros(max_attr_idx + 1, dtype=np.int32)
         for attr_idx, attr_data in self.d_local_attractors.items():
-            # d_local_attractors[idx] = (network_idx, scene_idx, attractor_obj)
+            # d_local_attractors[idx] = (network_idx, scene_idx, attractor_index)
             net_idx = attr_data[0]
             attr_to_network[attr_idx] = net_idx
         # Initialize with first edge

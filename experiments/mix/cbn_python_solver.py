@@ -34,7 +34,7 @@ def run_audit(input_path: str):
         "find_local_attractors_brute_force_turbo_sequential",
         "find_local_attractors_parallel",
         "find_local_attractors_brute_force_parallel",
-        "find_local_attractors_parallel_with_weigths",
+        "find_local_attractors_parallel_with_weights",
     ]
 
     # 2. Compatible Pairs Methods
