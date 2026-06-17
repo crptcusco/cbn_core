@@ -9,12 +9,12 @@ import pandas as pd
 # Add the project's main directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from classes.cbnetwork import CBN
-from classes.globaltopology import GlobalTopology
+from cbnetwork.cbnetwork import CBN
+from cbnetwork.globaltopology import GlobalTopology
 
 # Local imports
-from classes.localtemplates import LocalNetworkTemplate
-from classes.utils.customtext import CustomText
+from cbnetwork.localtemplates import LocalNetworkTemplate
+from cbnetwork.utils.customtext import CustomText
 
 """
 Experiment 6 - Test the aleatory CBNs with different number of local networks

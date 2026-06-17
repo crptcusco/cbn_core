@@ -1,14 +1,13 @@
 import argparse
-import os
 import sys
 from pathlib import Path
 
 # Add src to path
 sys.path.append(str(Path(__file__).resolve().parents[2] / "cbn_python" / "src"))
 
-from cbnetwork.cbnetwork import CBN
-from cbnetwork.coupling import CouplingStrategy
-from cbnetwork.coupling_bitmask import CouplingFactory
+from cbnetwork.cbnetwork import CBN  # noqa: E402  # noqa: E402
+from cbnetwork.coupling import CouplingStrategy  # noqa: E402  # noqa: E402
+from cbnetwork.coupling_bitmask import CouplingFactory  # noqa: E402  # noqa: E402
 
 
 class BitmaskCouplingStrategy(CouplingStrategy):

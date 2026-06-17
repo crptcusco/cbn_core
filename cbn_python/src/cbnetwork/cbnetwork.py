@@ -6,13 +6,7 @@ import os
 import random  # Library for generating random numbers and shuffling data
 from itertools import product
 from math import ceil
-from multiprocessing import Pool
-from typing import (  # Type hints for better code readability and type safety
-    Any,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
 import numpy as np
 from dask import (  # Library for parallel computing using task scheduling with Dask
@@ -533,7 +527,7 @@ class CBN:
             )
         # Execute in parallel with multiprocessing
         all_tasks = [task for bucket in buckets for task in bucket["tasks"]]
-        with Pool(processes=num_cpus) as pool:
+        with multiprocessing.Pool(processes=num_cpus) as pool:
             results = pool.map(CBN.process_local_network_mp, all_tasks)
         # Check if any network disappeared
         if len(results) != len(self.l_local_networks):
@@ -1046,7 +1040,7 @@ class CBN:
         for bucket in buckets:
             all_tasks.extend(bucket["tasks"])
         # Execute all tasks in parallel using multiprocessing
-        with Pool(processes=num_cpus) as pool:
+        with multiprocessing.Pool(processes=num_cpus) as pool:
             results = pool.map(CBN.process_output_signal_mp, all_tasks)
         logging.getLogger(__name__).info("Number of tasks processed: %d", len(results))
         total_pairs = 0
@@ -1370,7 +1364,7 @@ class CBN:
                 (bp, l_candidate_pairs, self.d_local_attractors)
                 for bp in base_pairs_list
             ]
-            with Pool(processes=num_cpus) as pool:
+            with multiprocessing.Pool(processes=num_cpus) as pool:
                 results = pool.starmap(CBN.process_single_base_pair, tasks_args)
             new_base_pairs = set()
             for r in results:
@@ -1465,7 +1459,7 @@ class CBN:
             for i, chunk in enumerate(chunks):
                 logger.info("  Chunk %d: %d pairs", i, len(chunk))
             # Execute in parallel: for each chunk, call cartesian_product_mod
-            with Pool(processes=num_cpus) as pool:
+            with multiprocessing.Pool(processes=num_cpus) as pool:
                 args = [
                     (chunk, candidate_pairs, self.d_local_attractors)
                     for chunk in chunks

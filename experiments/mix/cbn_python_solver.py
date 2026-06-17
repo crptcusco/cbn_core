@@ -8,9 +8,9 @@ from pathlib import Path
 # Add src to path
 sys.path.append(str(Path(__file__).resolve().parents[2] / "cbn_python" / "src"))
 
-import traceback
+import traceback  # noqa: E402  # noqa: E402
 
-from cbnetwork.cbnetwork import CBN
+from cbnetwork.cbnetwork import CBN  # noqa: E402  # noqa: E402  # noqa: E402
 
 
 def run_audit(input_path: str):

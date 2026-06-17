@@ -195,7 +195,6 @@ class LocalNetwork:
         High-performance brute-force attractor finding using Numba.
         This method orchestrates calls to the accelerated functions in `acceleration.py`.
         """
-        import numpy as np
 
         from .acceleration import HAS_NUMBA, find_attractors_turbo
 

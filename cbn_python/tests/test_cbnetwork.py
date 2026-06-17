@@ -90,7 +90,7 @@ class TestCBN:
 
         # Mock multiprocessing.Pool imported in cbnetwork.cbnetwork
         # (the module imports `Pool` directly, so patch that name)
-        with patch("cbnetwork.cbnetwork.Pool") as mock_pool:
+        with patch("multiprocessing.Pool") as mock_pool:
             # Setup mock pool return
             mock_pool_instance = mock_pool.return_value
             mock_pool_instance.__enter__.return_value = mock_pool_instance
@@ -120,7 +120,7 @@ class TestCBN:
         cbn = CBN(l_local_networks, l_directed_edges)
 
         # Mock multiprocessing.Pool imported in cbnetwork.cbnetwork
-        with patch("cbnetwork.cbnetwork.multiprocessing.Pool") as mock_pool:
+        with patch("multiprocessing.Pool") as mock_pool:
             # Setup mock pool return
             mock_pool_instance = mock_pool.return_value
             mock_pool_instance.__enter__.return_value = mock_pool_instance

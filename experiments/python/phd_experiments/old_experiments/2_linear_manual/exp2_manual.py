@@ -4,11 +4,11 @@ import time
 import pandas as pd
 
 # local imports
-from classes.cbnetwork import CBN
-from classes.directededge import DirectedEdge
-from classes.internalvariable import InternalVariable
-from classes.localnetwork import LocalNetwork
-from classes.utils.customtext import CustomText
+from cbnetwork.cbnetwork import CBN
+from cbnetwork.directededge import DirectedEdge
+from cbnetwork.internalvariable import InternalVariable
+from cbnetwork.localnetwork import LocalNetwork
+from cbnetwork.utils.customtext import CustomText
 
 """
 Test the linear structure 
