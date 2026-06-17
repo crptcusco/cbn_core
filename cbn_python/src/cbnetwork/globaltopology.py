@@ -5,6 +5,7 @@ import time
 
 import matplotlib.colors as mco
 import matplotlib.pyplot as plt
+
 # External imports
 import networkx as nx
 from cbnetwork.utils.customtext import CustomText

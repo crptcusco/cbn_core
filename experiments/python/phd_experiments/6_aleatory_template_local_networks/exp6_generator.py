@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from classes.cbnetwork import CBN
 from classes.globaltopology import GlobalTopology
+
 # Local imports
 from classes.localtemplates import LocalNetworkTemplate
 from classes.utils.customtext import CustomText

@@ -8,20 +8,26 @@ from itertools import product
 from math import ceil
 from multiprocessing import Pool
 from typing import (  # Type hints for better code readability and type safety
-    Any, Dict, List, Optional)
+    Any,
+    Dict,
+    List,
+    Optional,
+)
 
 import numpy as np
 from dask import (  # Library for parallel computing using task scheduling with Dask
-    compute, delayed)
+    compute,
+    delayed,
+)
 
 from .cbnetwork_utils import _convert_to_tuple as _convert_to_tuple
 from .cbnetwork_utils import cartesian_product_mod as _cartesian_product_mod
 from .cbnetwork_utils import evaluate_pair as _evaluate_pair
 from .cbnetwork_utils import flatten as _flatten
-from .cbnetwork_utils import \
-    process_single_base_pair as _process_single_base_pair
+from .cbnetwork_utils import process_single_base_pair as _process_single_base_pair
 from .coupling import CouplingStrategy, OrCoupling
 from .directededge import DirectedEdge
+
 # internal imports
 from .globalscene import GlobalScene
 from .globaltopology import GlobalTopology
@@ -820,9 +826,11 @@ class CBN:
         """
         Numba-accelerated version of Step 2: Compatible Attractor Pairs.
         """
-        from cbnetwork.acceleration import (HAS_NUMBA,
-                                            evaluate_attractors_signal_kernel,
-                                            find_compatible_pairs_kernel)
+        from cbnetwork.acceleration import (
+            HAS_NUMBA,
+            evaluate_attractors_signal_kernel,
+            find_compatible_pairs_kernel,
+        )
 
         if not HAS_NUMBA:
             return self.find_compatible_pairs()
@@ -975,8 +983,14 @@ class CBN:
                 all_index_vars.add(edge.index_variable)
         for idx_var in all_index_vars:
             var_to_attractors[idx_var] = {
-                0: [a.g_index for a in self.get_attractors_by_input_signal_value(idx_var, 0)],
-                1: [a.g_index for a in self.get_attractors_by_input_signal_value(idx_var, 1)],
+                0: [
+                    a.g_index
+                    for a in self.get_attractors_by_input_signal_value(idx_var, 0)
+                ],
+                1: [
+                    a.g_index
+                    for a in self.get_attractors_by_input_signal_value(idx_var, 1)
+                ],
             }
 
         # Iterate over each local network and its output signals
@@ -1239,8 +1253,7 @@ class CBN:
         Numba-accelerated version of Step 3: Mount Stable Attractor Fields.
         Uses numerical arrays and JIT-compiled kernels for faster field assembly.
         """
-        from cbnetwork.acceleration import (HAS_NUMBA,
-                                            filter_compatible_pairs_kernel)
+        from cbnetwork.acceleration import HAS_NUMBA, filter_compatible_pairs_kernel
 
         if not HAS_NUMBA:
             return self.mount_stable_attractor_fields()

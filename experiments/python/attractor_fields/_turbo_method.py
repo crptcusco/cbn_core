@@ -1,10 +1,15 @@
+import logging
+
+import numpy as np
+from cbnetwork.utils.customtext import CustomText
+
+
 def mount_stable_attractor_fields_turbo(self) -> None:
     """
     Numba-accelerated version of Step 3: Mount Stable Attractor Fields.
     Uses numerical arrays and JIT-compiled kernels for faster field assembly.
     """
-    from cbnetwork.acceleration import (HAS_NUMBA,
-                                        filter_compatible_pairs_kernel)
+    from cbnetwork.acceleration import HAS_NUMBA, filter_compatible_pairs_kernel
 
     if not HAS_NUMBA:
         return self.mount_stable_attractor_fields()

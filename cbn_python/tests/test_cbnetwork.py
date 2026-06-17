@@ -14,11 +14,13 @@ class TestCBN:
         net1.index = 1
         net1.output_signals = []
         net1.attractor_count = 5
+        net1.local_scenes = []
 
         net2 = MagicMock(spec=LocalNetwork)
         net2.index = 2
         net2.output_signals = []
         net2.attractor_count = 5
+        net2.local_scenes = []
 
         # Create mock DirectedEdges
         edge1 = MagicMock(spec=DirectedEdge)

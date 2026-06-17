@@ -33,7 +33,9 @@ class BitmaskCouplingStrategy(CouplingStrategy):
             return " " + str(output_variables[0]) + " "
         return " " + " ∨ ".join(map(str, output_variables)) + " "
 
-    def to_cnf(self, output_variables: list[int], coupling_variable: int) -> list[list[int]]:
+    def to_cnf(
+        self, output_variables: list[int], coupling_variable: int
+    ) -> list[list[int]]:
         # Bitmask-to-CNF conversion (simplified: OR logic if unsure)
         # In a real scenario, this should convert the truth table to CNF.
         # For the purpose of this task, we'll use a basic OR to not break the SAT flow.
@@ -77,9 +79,13 @@ def main():
             elif choice == 1:
                 return BitmaskCouplingStrategy(CouplingFactory.create_and_function(k))
             elif choice == 2:
-                return BitmaskCouplingStrategy(CouplingFactory.create_majority_function(k))
+                return BitmaskCouplingStrategy(
+                    CouplingFactory.create_majority_function(k)
+                )
             else:
-                return BitmaskCouplingStrategy(CouplingFactory.create_mixed_random_function(k))
+                return BitmaskCouplingStrategy(
+                    CouplingFactory.create_mixed_random_function(k)
+                )
 
     import random
 
@@ -88,7 +94,7 @@ def main():
     # or pass a factory.
 
     # For now, let's use a Mixed Random function if k > 1, else Buffer.
-    k = 1 # fixed in original script
+    k = 1  # fixed in original script
     strat = get_dynamic_coupling(k)
 
     cbn = CBN.cbn_generator(

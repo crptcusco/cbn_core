@@ -115,9 +115,7 @@ class DirectedEdge:
 
         if self.bitmask is not None:
             for i in range(1 << self.k_inputs):
-                aux_key = "".join(
-                    str((i >> j) & 1) for j in range(self.k_inputs)
-                )
+                aux_key = "".join(str((i >> j) & 1) for j in range(self.k_inputs))
                 r_true_table[aux_key] = str((self.bitmask >> i) & 1)
             return r_true_table
 

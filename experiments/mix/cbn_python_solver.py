@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[2] / "cbn_python" / "src"))
 
 import traceback
+
 from cbnetwork.cbnetwork import CBN
 
 
@@ -73,7 +74,12 @@ def run_audit(input_path: str):
 
             # Special check for count 0 which might indicate silent failure (e.g. missing minisat)
             if count == 0 and "find" in method_name:
-                 return "OK", f"Tiempo: {duration:.2f}s | Conteo: {count} (⚠️ WARNING: Empty results)", duration, count
+                return (
+                    "OK",
+                    f"Tiempo: {duration:.2f}s | Conteo: {count} (⚠️ WARNING: Empty results)",
+                    duration,
+                    count,
+                )
 
             return "OK", f"Tiempo: {duration:.2f}s | Conteo: {count}", duration, count
         except Exception as e:
@@ -81,7 +87,11 @@ def run_audit(input_path: str):
             err_msg = str(e)
             stack = traceback.extract_tb(sys.exc_info()[2])
             last_call = stack[-1] if stack else None
-            loc = f"({last_call.filename.split('/')[-1]}, Line {last_call.lineno})" if last_call else ""
+            loc = (
+                f"({last_call.filename.split('/')[-1]}, Line {last_call.lineno})"
+                if last_call
+                else ""
+            )
             return "FAIL", f"ERROR: {type(e).__name__}: {err_msg} {loc}", duration, 0
 
     # Audit Attractor Methods
@@ -121,9 +131,13 @@ def run_audit(input_path: str):
     print("======================================================================")
 
     def check_parity(group_name, methods_in_group):
-        group_results = [r for r in results if r[0] in methods_in_group and r[1] == "OK" and r[3] > 0]
+        group_results = [
+            r for r in results if r[0] in methods_in_group and r[1] == "OK" and r[3] > 0
+        ]
         if not group_results:
-            print(f"[WARN] No successful methods (with results) in group {group_name} to compare.")
+            print(
+                f"[WARN] No successful methods (with results) in group {group_name} to compare."
+            )
             return
 
         counts = [r[3] for r in group_results]
@@ -132,7 +146,9 @@ def run_audit(input_path: str):
             for name, status, msg, count in group_results:
                 print(f"   - {name}: {count}")
         else:
-            print(f"[OK] Parity maintained for {group_name} ({counts[0]} consistent results)")
+            print(
+                f"[OK] Parity maintained for {group_name} ({counts[0]} consistent results)"
+            )
 
     check_parity("Attractors", attractor_methods)
     check_parity("Compatible Pairs", pairs_methods)
