@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 # Configuración
-N_SAMPLES = 20
+N_SAMPLES = 100
 TOPOLOGIES = [1, 2, 3, 7, 9]  # complete, linear, cycle, dm, sf
 NETWORKS_RANGE = (3, 6)
 VARS_RANGE = (3, 5)

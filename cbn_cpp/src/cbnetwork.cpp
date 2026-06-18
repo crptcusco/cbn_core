@@ -591,8 +591,6 @@ void CBN::mount_stable_attractor_fields() {
 }
 
 void CBN::mount_stable_attractor_fields_turbo() {
-  // For now, Turbo sequentially calls the corrected combinatorial method
-  // In larger systems, this can be accelerated with parallel kernels
   mount_stable_attractor_fields();
 }
 
@@ -919,9 +917,6 @@ void CBN::audit_indices() const {
               }
             }
             if (!is_input_signal && abs_lit < 1000) {
-              // Relaxed warning instead of error during complex generation
-              // std::cerr << "Audit Warning: Variable " << abs_lit << " in
-              // network " << net->index << " logic is unmapped." << std::endl;
             }
           }
         }
@@ -974,7 +969,6 @@ std::shared_ptr<CBN> CBN::clone() const {
   for (const auto &net : l_local_networks) {
     auto cloned_net =
         std::make_shared<LocalNetwork>(net->index, net->internal_variables);
-    // Copy InternalVariable pointers (logic is immutable)
     cloned_net->descriptive_function_variables =
         net->descriptive_function_variables;
     cloned_networks.push_back(cloned_net);
@@ -987,15 +981,14 @@ std::shared_ptr<CBN> CBN::clone() const {
         edge->index, edge->index_variable, edge->input_local_network,
         edge->output_local_network, edge->l_output_variables,
         edge->coupling_function);
-    cloned_edge->true_table = edge->true_table; // Deep copy map
+    cloned_edge->true_table = edge->true_table;
     cloned_edges.push_back(cloned_edge);
   }
 
   auto cloned_cbn = std::make_shared<CBN>(cloned_networks, cloned_edges);
   cloned_cbn->o_global_topology =
-      o_global_topology; // Shared immutable topology
+      o_global_topology;
 
-  // Re-link input/output signals
   for (auto &net : cloned_cbn->l_local_networks) {
     std::vector<std::shared_ptr<DirectedEdge>> inputs;
     for (auto &edge : cloned_cbn->l_directed_edges) {

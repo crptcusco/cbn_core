@@ -1001,6 +1001,8 @@ class CBN:
         """
 
         # Ensure we start from a canonical order
+        if not self.l_directed_edges:
+            return
         self.order_edges_canonically()
 
         def is_compatible(l_group_base, o_group):
@@ -1343,7 +1345,7 @@ class CBN:
                - Extract the candidate pairs for the current output signal.
                - Divide the current base into uniform chunks (based on num_cpus).
                - Process each chunk in parallel using cartesian_product_mod,
-                 passing the candidate list and the d_local_attractors dictionary.
+                  passing the candidate list and the d_local_attractors dictionary.
                - Merge the results (via set union) to update the base pairs.
           4. Finally, generate the attractor fields dictionary from the final base.
         Updates self.d_attractor_fields with the found fields.
@@ -1868,18 +1870,28 @@ class CBN:
                     f"Edge {edge.index}: Input network {edge.input_local_network} not found."
                 )
 
+        all_internal_vars = set()
         for net in self.l_local_networks:
+            for v in net.internal_variables:
+                if v in all_internal_vars:
+                    raise IndexError(f"Duplicate internal variable index detected: {v}")
+                all_internal_vars.add(v)
+
+        for net in self.l_local_networks:
+            net_vars = set(net.internal_variables) | set(net.external_variables)
             for var in net.descriptive_function_variables:
                 for clause in var.cnf_function:
                     for lit in clause:
                         abs_lit = abs(lit)
-                        if (
-                            abs_lit not in net.total_variables
-                            and abs_lit not in net.internal_variables
-                        ):
-                            # In some cases external vars are not in total_variables yet
-                            # but they should be after process_input_signals
-                            pass
+                        if abs_lit not in net_vars:
+                            is_input_signal = any(
+                                e.index_variable == abs_lit
+                                for e in self.get_input_edges_by_network_index(
+                                    net.index
+                                )
+                            )
+                            if not is_input_signal and abs_lit < 1000:
+                                pass  # Log warning if needed
 
     def count_fields_by_global_scenes(self):
         """

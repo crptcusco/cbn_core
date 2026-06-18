@@ -1,4 +1,3 @@
-import pytest
 from cbnetwork.directededge import DirectedEdge
 
 
