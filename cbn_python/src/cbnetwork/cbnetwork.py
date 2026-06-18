@@ -162,7 +162,6 @@ class CBN:
             print(f"Error processing network {o_local_network.index}: {e}")
             return o_local_network
 
-
     @staticmethod
     def process_output_signal_mp(args):
         """
@@ -365,7 +364,6 @@ class CBN:
         logger.info("Number of local attractors: %d", self._count_total_attractors())
         CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS")
 
-
     def find_local_attractors_parallel(self, num_cpus=None):
         """Finds the attractors for each local network in parallel.
         This is the first major step in analyzing the CBN. It iterates through
@@ -394,7 +392,6 @@ class CBN:
         # Generate the attractor dictionary
         self.generate_attractor_dictionary()
         CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS PARALLEL")
-
 
     def find_local_attractors_parallel_with_weights(self, num_cpus=None):
         """
@@ -983,12 +980,28 @@ class CBN:
             "END FIND COMPATIBLE ATTRACTOR PAIRS (Total unique pairs: %d)", total_pairs
         )
 
+    def order_edges_canonically(self):
+        """
+        Orders edges by (source_network, target_network, signal_variable)
+        to ensure deterministic processing order across different platforms.
+        """
+        self.l_directed_edges.sort(
+            key=lambda e: (
+                e.output_local_network,
+                e.input_local_network,
+                e.index_variable,
+            )
+        )
+
     def order_edges_by_compatibility(self):
         """
         Order the directed edges based on their compatibility.
         The compatibility is determined if the input or output local network of one edge
         matches with the input or output local network of any edge in the base group.
         """
+
+        # Ensure we start from a canonical order
+        self.order_edges_canonically()
 
         def is_compatible(l_group_base, o_group):
             """
@@ -1015,16 +1028,19 @@ class CBN:
         # Initialize the base list with the first edge group
         l_base = [self.l_directed_edges[0]]
         aux_l_rest_groups = self.l_directed_edges[1:]
-        # Process each remaining edge group
-        for v_group in aux_l_rest_groups:
-            if is_compatible(l_base, v_group):
-                l_base.append(v_group)
-            else:
-                # If not compatible, move it to the end of the list
-                aux_l_rest_groups.remove(v_group)
-                aux_l_rest_groups.append(v_group)
-        # Combine the base list with the rest of the groups
-        self.l_directed_edges = [self.l_directed_edges[0]] + aux_l_rest_groups
+
+        while aux_l_rest_groups:
+            found = False
+            for i, v_group in enumerate(aux_l_rest_groups):
+                if is_compatible(l_base, v_group):
+                    l_base.append(aux_l_rest_groups.pop(i))
+                    found = True
+                    break
+            if not found:
+                l_base.extend(aux_l_rest_groups)
+                aux_l_rest_groups = []
+
+        self.l_directed_edges = l_base
         # print("Directed Edges ordered.")
 
     def order_edges_by_grade(self):
@@ -1119,10 +1135,9 @@ class CBN:
 
         # 2. Initialize fields from the first edge (Step 2)
         first_edge = self.l_directed_edges[0]
-        initial_pairs = (
-            first_edge.d_comp_pairs_attractors_by_value.get(0, [])
-            + first_edge.d_comp_pairs_attractors_by_value.get(1, [])
-        )
+        initial_pairs = first_edge.d_comp_pairs_attractors_by_value.get(
+            0, []
+        ) + first_edge.d_comp_pairs_attractors_by_value.get(1, [])
         if not initial_pairs:
             self.d_attractor_fields = {}
             return
@@ -1132,10 +1147,9 @@ class CBN:
 
         # 3. Iteratively refine with remaining edges (Step 3)
         for directed_edge in self.l_directed_edges[1:]:
-            candidate_pairs = (
-                directed_edge.d_comp_pairs_attractors_by_value.get(0, [])
-                + directed_edge.d_comp_pairs_attractors_by_value.get(1, [])
-            )
+            candidate_pairs = directed_edge.d_comp_pairs_attractors_by_value.get(
+                0, []
+            ) + directed_edge.d_comp_pairs_attractors_by_value.get(1, [])
             if not candidate_pairs:
                 l_base_pairs = []
                 break

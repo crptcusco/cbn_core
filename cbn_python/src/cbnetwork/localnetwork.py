@@ -111,7 +111,6 @@ class LocalNetwork:
                 return True  # Exit after updating the variable
         return False
 
-
     @staticmethod
     def find_local_attractors(local_network, local_scenes=None):
         """
@@ -398,7 +397,10 @@ class LocalNetwork:
                         # Attractor found
                         idx = path.index(curr)
                         attractor_states_raw = path[idx:]
-                        l_states = [LocalState("".join(map(str, s))) for s in attractor_states_raw]
+                        l_states = [
+                            LocalState("".join(map(str, s)))
+                            for s in attractor_states_raw
+                        ]
 
                         attractor = LocalAttractor(
                             g_index=None,
@@ -412,7 +414,9 @@ class LocalNetwork:
                         break
 
             local_scene_obj = LocalScene(
-                scene_index, scene_str if scene_str else None, local_network.external_variables
+                scene_index,
+                scene_str if scene_str else None,
+                local_network.external_variables,
             )
             local_scene_obj.l_attractors = scene_attractors
             local_network.local_scenes.append(local_scene_obj)

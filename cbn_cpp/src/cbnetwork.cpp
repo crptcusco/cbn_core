@@ -48,9 +48,23 @@ void CBN::process_output_signals() {
   }
 }
 
+void CBN::order_edges_canonically() {
+  std::sort(l_directed_edges.begin(), l_directed_edges.end(),
+            [](const std::shared_ptr<DirectedEdge> &a,
+               const std::shared_ptr<DirectedEdge> &b) {
+              if (a->output_local_network != b->output_local_network)
+                return a->output_local_network < b->output_local_network;
+              if (a->input_local_network != b->input_local_network)
+                return a->input_local_network < b->input_local_network;
+              return a->index_variable < b->index_variable;
+            });
+}
+
 void CBN::order_edges_by_compatibility() {
   if (l_directed_edges.empty())
     return;
+
+  order_edges_canonically();
 
   auto is_compatible =
       [](const std::vector<std::shared_ptr<DirectedEdge>> &l_group_base,

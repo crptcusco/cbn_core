@@ -147,9 +147,7 @@ def run_audit(input_path: str):
 
     def check_parity(group_name, methods_in_group):
         group_results = [
-            r
-            for r in results
-            if r[0] in methods_in_group and r[1] == "OK" and r[3] > 0
+            r for r in results if r[0] in methods_in_group and r[1] == "OK" and r[3] > 0
         ]
         if not group_results:
             print(
@@ -172,7 +170,10 @@ def run_audit(input_path: str):
     check_parity("Attractors", attractor_methods)
     check_parity("Compatible Pairs", pairs_methods)
     check_parity("Attractor Fields", field_methods)
-    print("======================================================================\n", flush=True)
+    print(
+        "======================================================================\n",
+        flush=True,
+    )
 
 
 def main():
@@ -181,9 +182,7 @@ def main():
     parser.add_argument(
         "--output", type=str, required=False, help="Output dynamics JSON file"
     )
-    parser.add_argument(
-        "--audit", action="store_true", help="Run diagnostic audit"
-    )
+    parser.add_argument("--audit", action="store_true", help="Run diagnostic audit")
 
     args = parser.parse_args()
 
@@ -215,8 +214,7 @@ def main():
     dynamics = {
         "simulation_info": {
             "nodes": len(cbn.l_local_networks),
-            "v_elements": len(cbn.l_local_networks)
-            * cbn.get_n_local_variables(),
+            "v_elements": len(cbn.l_local_networks) * cbn.get_n_local_variables(),
         },
         "attractors": [],
         "performance": {"total_ms": duration_ms},

@@ -1,6 +1,7 @@
 import pytest
-from cbnetwork.localnetwork import LocalNetwork
 from cbnetwork.internalvariable import InternalVariable
+from cbnetwork.localnetwork import LocalNetwork
+
 
 def test_local_network_state_transitions():
     # Setup a simple 1-variable network: v1(t+1) = NOT v1(t)
@@ -21,6 +22,7 @@ def test_local_network_state_transitions():
     # Let's check if we can mock the solver or if it's available.
     pass
 
+
 def test_local_network_with_coupling():
     # v1(t+1) = external_v10
     # v1 <=> v10
@@ -29,7 +31,7 @@ def test_local_network_with_coupling():
     var1 = InternalVariable(index=1, cnf_function=[[-1, 10], [1, -10]])
     net.descriptive_function_variables = [var1]
 
-    mock_signal = type('obj', (object,), {'index_variable': 10})
+    mock_signal = type("obj", (object,), {"index_variable": 10})
     net.process_input_signals([mock_signal])
 
     assert net.external_variables == [10]

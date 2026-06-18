@@ -1,5 +1,4 @@
 import json
-import os
 import random
 import subprocess
 import sys
@@ -18,11 +17,13 @@ PYTHON_SOLVER = ROOT_DIR / "experiments" / "mix" / "cbn_python_solver.py"
 TEMP_DIR = ROOT_DIR / "temp_parity"
 TEMP_DIR.mkdir(exist_ok=True)
 
+
 def run_command(cmd):
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         return False, result.stderr
     return True, result.stdout
+
 
 def compare_attractors(py_dyn_file, cpp_dyn_file):
     with open(py_dyn_file) as f:
@@ -35,13 +36,15 @@ def compare_attractors(py_dyn_file, cpp_dyn_file):
         canonical = []
         for a in attrs:
             states = a.get("states", [])
-            canonical.append(tuple(sorted(states)))
+            # Some formats might have id as string or int
+            canonical.append(tuple(sorted([int(s) for s in states])))
         return sorted(canonical)
 
     py_can = get_canonical(py_data)
     cpp_can = get_canonical(cpp_data)
 
     return py_can == cpp_can, py_can, cpp_can
+
 
 def main():
     print(f"Starting Parity Validation: {N_SAMPLES} random samples")
@@ -61,34 +64,51 @@ def main():
         cpp_dyn = TEMP_DIR / f"cpp_dyn_{i}.json"
 
         # 1. Generate topology
-        success, err = run_command([
-            sys.executable, str(PYTHON_GEN),
-            "--topology", str(topo),
-            "--networks", str(nets),
-            "--vars", str(vars),
-            "--output", str(topo_file)
-        ])
+        success, err = run_command(
+            [
+                sys.executable,
+                str(PYTHON_GEN),
+                "--topology",
+                str(topo),
+                "--networks",
+                str(nets),
+                "--vars",
+                str(vars),
+                "--output",
+                str(topo_file),
+            ]
+        )
         if not success:
             print(f"Sample {i}: Python Gen failed: {err}")
             continue
 
         # 2. Python Solve
-        success, err = run_command([
-            sys.executable, str(PYTHON_SOLVER),
-            "--input", str(topo_file),
-            "--output", str(py_dyn)
-        ])
+        success, err = run_command(
+            [
+                sys.executable,
+                str(PYTHON_SOLVER),
+                "--input",
+                str(topo_file),
+                "--output",
+                str(py_dyn),
+            ]
+        )
         if not success:
             print(f"Sample {i}: Python Solver failed: {err}")
             continue
 
         # 3. C++ Solve
-        success, err = run_command([
-            str(CPP_BINARY),
-            "--input", str(topo_file),
-            "--dir", str(TEMP_DIR),
-            "--samples", "1"
-        ])
+        success, err = run_command(
+            [
+                str(CPP_BINARY),
+                "--input",
+                str(topo_file),
+                "--dir",
+                str(TEMP_DIR),
+                "--samples",
+                "1",
+            ]
+        )
         if not success:
             print(f"Sample {i}: C++ Solver failed: {err}")
             continue
@@ -104,30 +124,45 @@ def main():
         match, py_res, cpp_res = compare_attractors(py_dyn, cpp_dyn)
         if match:
             success_count += 1
-            print(f"[{i}/{N_SAMPLES}] OK | Topo:{topo} Nets:{nets} Vars:{vars} | Fields: {len(py_res)}")
+            print(
+                f"[{i}/{N_SAMPLES}] OK | Topo:{topo} Nets:{nets} Vars:{vars} | Fields: {len(py_res)}"
+            )
         else:
-            print(f"[{i}/{N_SAMPLES}] FAILED PARITY! | Topo:{topo} Nets:{nets} Vars:{vars}")
+            print(
+                f"[{i}/{N_SAMPLES}] FAILED PARITY! | Topo:{topo} Nets:{nets} Vars:{vars}"
+            )
             print(f"  Python: {py_res}")
             print(f"  C++   : {cpp_res}")
 
             # State dump for debugging
             print("\n--- Generating Debug State Dumps ---")
-            run_command([
-                sys.executable, str(PYTHON_SOLVER),
-                "--input", str(topo_file),
-                "--output", str(TEMP_DIR / "debug_py_dyn.json"),
-                "--debug-dump"
-            ])
-            run_command([
-                str(CPP_BINARY),
-                "--input", str(topo_file),
-                "--dir", str(TEMP_DIR),
-                "--samples", "1",
-                "--debug-dump"
-            ])
+            run_command(
+                [
+                    sys.executable,
+                    str(PYTHON_SOLVER),
+                    "--input",
+                    str(topo_file),
+                    "--output",
+                    str(TEMP_DIR / "debug_py_dyn.json"),
+                    "--debug-dump",
+                ]
+            )
+            run_command(
+                [
+                    str(CPP_BINARY),
+                    "--input",
+                    str(topo_file),
+                    "--dir",
+                    str(TEMP_DIR),
+                    "--samples",
+                    "1",
+                    "--debug-dump",
+                ]
+            )
             sys.exit(1)
 
     print(f"\nSUCCESS: {success_count}/{N_SAMPLES} samples matched perfectly.")
+
 
 if __name__ == "__main__":
     main()

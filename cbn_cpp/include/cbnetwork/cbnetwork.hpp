@@ -45,6 +45,7 @@ public:
     void find_compatible_pairs_parallel_with_weights();
     void find_compatible_pairs_turbo();
 
+    void order_edges_canonically();
     void order_edges_by_compatibility();
     void order_edges_by_grade();
     void disorder_edges();
