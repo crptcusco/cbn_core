@@ -4,19 +4,18 @@ import os
 import random
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 # ======================================================================
 # CONFIGURACIÓN DEL EXPERIMENTO (SMOKE TEST MODE)
 # ======================================================================
-N_SAMPLES = 5   # Reducido a 5 para una validación rápida
-NETWORKS = 6    # 6 redes locales
-VARS = 5        # 5 variables por red (32 estados por subred)
+N_SAMPLES = 5  # Reducido a 5 para una validación rápida
+NETWORKS = 6  # 6 redes locales
+VARS = 5  # 5 variables por red (32 estados por subred)
 
 # Topologías a incluir: Se fija en 2 para asegurar la cadena lineal unidireccional
 # (IDs estándar: 1: complete, 2: linear/path, 3: cycle, 7: dorogovtsev_mendes, 9: scale_free)
-TOPOLOGIES = [2] 
+TOPOLOGIES = [2]
 
 MIX_DIR = Path(__file__).resolve().parent
 ROOT_DIR = MIX_DIR.parents[1]

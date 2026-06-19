@@ -101,13 +101,15 @@ def run_audit(input_path: str):
     # Audit Attractor Methods
     for m in attractor_methods:
         cbn = CBN.from_json(input_path)
-        status, msg, duration, count = run_method(cbn, m)
+        status, msg, duration, count = run_method(
+            cbn, m, use_brute_force=True if "sequential" in m else False
+        )
         results.append((m, status, msg, count))
         detailed_logs.append((f"[{status:4}] {m:45} -> {msg}", "ATTRACTORS"))
 
     # For Pairs and Fields, use a base CBN that worked
     base_cbn = CBN.from_json(input_path)
-    base_cbn.find_local_attractors_sequential()
+    base_cbn.find_local_attractors_sequential(use_brute_force=True)
 
     for m in pairs_methods:
         for edge in base_cbn.l_directed_edges:
@@ -145,9 +147,7 @@ def run_audit(input_path: str):
 
     def check_parity(group_name, methods_in_group):
         group_results = [
-            r
-            for r in results
-            if r[0] in methods_in_group and r[1] == "OK" and r[3] > 0
+            r for r in results if r[0] in methods_in_group and r[1] == "OK" and r[3] > 0
         ]
         if not group_results:
             print(
@@ -170,7 +170,10 @@ def run_audit(input_path: str):
     check_parity("Attractors", attractor_methods)
     check_parity("Compatible Pairs", pairs_methods)
     check_parity("Attractor Fields", field_methods)
-    print("======================================================================\n", flush=True)
+    print(
+        "======================================================================\n",
+        flush=True,
+    )
 
 
 def main():
@@ -179,9 +182,7 @@ def main():
     parser.add_argument(
         "--output", type=str, required=False, help="Output dynamics JSON file"
     )
-    parser.add_argument(
-        "--audit", action="store_true", help="Run diagnostic audit"
-    )
+    parser.add_argument("--audit", action="store_true", help="Run diagnostic audit")
 
     args = parser.parse_args()
 
@@ -203,7 +204,7 @@ def main():
 
     # Consolidado: Usamos los métodos estables validados por la auditoría de paridad
     print("[*] Running standard pipeline (Validation Parity Verified)...")
-    cbn.find_local_attractors_sequential()
+    cbn.find_local_attractors_sequential(use_brute_force=True)
     cbn.find_compatible_pairs()
     cbn.mount_stable_attractor_fields_turbo()
 
@@ -213,8 +214,7 @@ def main():
     dynamics = {
         "simulation_info": {
             "nodes": len(cbn.l_local_networks),
-            "v_elements": len(cbn.l_local_networks)
-            * cbn.get_n_local_variables(),
+            "v_elements": len(cbn.l_local_networks) * cbn.get_n_local_variables(),
         },
         "attractors": [],
         "performance": {"total_ms": duration_ms},

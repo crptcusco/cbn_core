@@ -1,5 +1,3 @@
-import os
-
 from cbnetwork.internalvariable import InternalVariable
 from cbnetwork.localnetwork import LocalNetwork
 

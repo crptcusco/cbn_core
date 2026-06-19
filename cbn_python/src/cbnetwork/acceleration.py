@@ -190,7 +190,6 @@ if HAS_NUMBA:
 
 else:
 
-
     def evaluate_attractors_signal_kernel(*args):
         raise ImportError("Numba is required for Turbo acceleration.")
 

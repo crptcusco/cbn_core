@@ -48,9 +48,23 @@ void CBN::process_output_signals() {
   }
 }
 
+void CBN::order_edges_canonically() {
+  std::sort(l_directed_edges.begin(), l_directed_edges.end(),
+            [](const std::shared_ptr<DirectedEdge> &a,
+               const std::shared_ptr<DirectedEdge> &b) {
+              if (a->output_local_network != b->output_local_network)
+                return a->output_local_network < b->output_local_network;
+              if (a->input_local_network != b->input_local_network)
+                return a->input_local_network < b->input_local_network;
+              return a->index_variable < b->index_variable;
+            });
+}
+
 void CBN::order_edges_by_compatibility() {
   if (l_directed_edges.empty())
     return;
+
+  order_edges_canonically();
 
   auto is_compatible =
       [](const std::vector<std::shared_ptr<DirectedEdge>> &l_group_base,
@@ -577,8 +591,6 @@ void CBN::mount_stable_attractor_fields() {
 }
 
 void CBN::mount_stable_attractor_fields_turbo() {
-  // For now, Turbo sequentially calls the corrected combinatorial method
-  // In larger systems, this can be accelerated with parallel kernels
   mount_stable_attractor_fields();
 }
 
@@ -713,6 +725,7 @@ CBN::cbn_generator(int v_topology, int n_local_networks, int n_vars_network,
   }
   auto cbn = std::make_shared<CBN>(networks, edges);
   cbn->o_global_topology = o_topo;
+  cbn->audit_indices();
   return cbn;
 }
 
@@ -849,6 +862,69 @@ void CBN::show_directed_edges() const {
   }
 }
 
+void CBN::audit_indices() const {
+  std::set<int> net_indices;
+  std::set<int> all_internal_vars;
+
+  for (const auto &net : l_local_networks) {
+    if (net_indices.count(net->index)) {
+      throw std::runtime_error("Duplicate network index detected: " +
+                               std::to_string(net->index));
+    }
+    net_indices.insert(net->index);
+
+    for (int v : net->internal_variables) {
+      if (all_internal_vars.count(v)) {
+        throw std::runtime_error("Duplicate internal variable index detected: " +
+                                 std::to_string(v));
+      }
+      all_internal_vars.insert(v);
+    }
+  }
+
+  for (const auto &edge : l_directed_edges) {
+    if (net_indices.find(edge->output_local_network) == net_indices.end()) {
+      throw std::runtime_error("Edge " + std::to_string(edge->index) +
+                               ": Output network " +
+                               std::to_string(edge->output_local_network) +
+                               " not found.");
+    }
+    if (net_indices.find(edge->input_local_network) == net_indices.end()) {
+      throw std::runtime_error("Edge " + std::to_string(edge->index) +
+                               ": Input network " +
+                               std::to_string(edge->input_local_network) +
+                               " not found.");
+    }
+  }
+
+  for (const auto &net : l_local_networks) {
+    std::set<int> net_vars(net->internal_variables.begin(),
+                           net->internal_variables.end());
+    net_vars.insert(net->external_variables.begin(),
+                    net->external_variables.end());
+
+    for (const auto &var : net->descriptive_function_variables) {
+      for (const auto &clause : var->cnf_function) {
+        for (int lit : clause) {
+          int abs_lit = std::abs(lit);
+          if (net_vars.find(abs_lit) == net_vars.end()) {
+            bool is_input_signal = false;
+            for (const auto &edge : l_directed_edges) {
+              if (edge->input_local_network == net->index &&
+                  edge->index_variable == abs_lit) {
+                is_input_signal = true;
+                break;
+              }
+            }
+            if (!is_input_signal && abs_lit < 1000) {
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 void CBN::save_attractor_fields_to_json(const std::string &filepath) {
   using json = nlohmann::json;
   json j_fields = json::array();
@@ -893,7 +969,6 @@ std::shared_ptr<CBN> CBN::clone() const {
   for (const auto &net : l_local_networks) {
     auto cloned_net =
         std::make_shared<LocalNetwork>(net->index, net->internal_variables);
-    // Copy InternalVariable pointers (logic is immutable)
     cloned_net->descriptive_function_variables =
         net->descriptive_function_variables;
     cloned_networks.push_back(cloned_net);
@@ -906,15 +981,14 @@ std::shared_ptr<CBN> CBN::clone() const {
         edge->index, edge->index_variable, edge->input_local_network,
         edge->output_local_network, edge->l_output_variables,
         edge->coupling_function);
-    cloned_edge->true_table = edge->true_table; // Deep copy map
+    cloned_edge->true_table = edge->true_table;
     cloned_edges.push_back(cloned_edge);
   }
 
   auto cloned_cbn = std::make_shared<CBN>(cloned_networks, cloned_edges);
   cloned_cbn->o_global_topology =
-      o_global_topology; // Shared immutable topology
+      o_global_topology;
 
-  // Re-link input/output signals
   for (auto &net : cloned_cbn->l_local_networks) {
     std::vector<std::shared_ptr<DirectedEdge>> inputs;
     for (auto &edge : cloned_cbn->l_directed_edges) {
