@@ -1,5 +1,4 @@
 # import libraries
-import random
 
 from cbnetwork.cbnetwork import CBN
 from cbnetwork.directededge import DirectedEdge

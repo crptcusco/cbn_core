@@ -1,58 +1,45 @@
 import csv
 import json
-import os
 import random
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 # ======================================================================
 # CONFIGURACIÓN DEL EXPERIMENTO (SMOKE TEST MODE)
 # ======================================================================
-N_SAMPLES = 5   # Reducido a 5 para una validación rápida
-NETWORKS = 6    # 6 redes locales
-VARS = 5        # 5 variables por red (32 estados por subred)
-
-# Topologías a incluir: Se fija en 2 para asegurar la cadena lineal unidireccional
-# (IDs estándar: 1: complete, 2: linear/path, 3: cycle, 7: dorogovtsev_mendes, 9: scale_free)
-TOPOLOGIES = [2] 
+N_SAMPLES = 5
+NETWORKS = 6
+VARS = 5
+TOPOLOGIES = [2]
 
 MIX_DIR = Path(__file__).resolve().parent
 ROOT_DIR = MIX_DIR.parents[1]
 CPP_BINARY = ROOT_DIR / "cbn_cpp" / "build" / "scientific_benchmarking"
 PYTHON_GEN = MIX_DIR / "cbn_python_gen.py"
 PYTHON_SOLVER = MIX_DIR / "cbn_python_solver.py"
-OUTPUT_CSV = MIX_DIR / "final_comparative_benchmark.csv"
+OUTPUT_DIR = MIX_DIR / "output"
+OUTPUT_CSV = OUTPUT_DIR / "final_comparative_benchmark.csv"
+
+OUTPUT_DIR.mkdir(exist_ok=True)
 
 
 def run_command(cmd):
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        print(f"Error running command: {' '.join(cmd)}")
-        print(f"STDOUT: {result.stdout}")
-        print(f"STDERR: {result.stderr}")
         return False, result.stderr
     return True, result.stdout
 
 
-def compare_dynamics(py_file, cpp_file):
-    if not os.path.exists(py_file) or not os.path.exists(cpp_file):
-        return False, "Missing files"
-    with open(py_file) as f:
-        py_data = json.load(f)
-    with open(cpp_file) as f:
-        cpp_data = json.load(f)
+def compare_dynamics(py_root, cpp_root):
+    def get_canonical_fields(root_data):
+        exec_data = root_data.get("pipeline_execution", {})
+        step3 = exec_data.get("step_3_global_fields", {})
+        fields = step3.get("attractor_fields", [])
+        return sorted([tuple(sorted(f["attractor_indices"])) for f in fields])
 
-    def get_canonical_attractors(data):
-        attractors = data.get("attractors", [])
-        # Cada atractor tiene 'states' que es una lista ordenada de enteros
-        return sorted(
-            [tuple(sorted([int(s) for s in a["states"]])) for a in attractors]
-        )
-
-    py_canonical = get_canonical_attractors(py_data)
-    cpp_canonical = get_canonical_attractors(cpp_data)
+    py_canonical = get_canonical_fields(py_root)
+    cpp_canonical = get_canonical_fields(cpp_root)
 
     if py_canonical == cpp_canonical:
         return True, len(py_canonical)
@@ -60,28 +47,12 @@ def compare_dynamics(py_file, cpp_file):
         return False, (py_canonical, cpp_canonical)
 
 
-def clean_old_files(sample_id):
-    files = [
-        MIX_DIR / f"cbn_sample_{sample_id}_topology.json",
-        MIX_DIR / f"py_sample_{sample_id}_dynamics.json",
-        MIX_DIR / f"cpp_sample_{sample_id}_dynamics.json",
-        MIX_DIR / "cbn_sample_1_AdvancedParallel_dynamics.json",
-        MIX_DIR / "temp_bench.csv",
-    ]
-    for f in files:
-        if f.exists():
-            os.remove(f)
-
-
 def main():
     print("=== CBN HYBRID BENCHMARK ORCHESTRATOR (SMOKE TEST) ===")
-    print(f"Root: {ROOT_DIR}")
-    print(f"Binary: {CPP_BINARY}")
-    print(f"Config: {NETWORKS} networks x {VARS} variables | Lineal Topology")
-    print("=" * 60)
+    print(f"Output directory: {OUTPUT_DIR}")
 
     if not CPP_BINARY.exists():
-        print(f"[Error] C++ Binary not found at {CPP_BINARY}. Please compile first.")
+        print(f"[Error] C++ Binary not found at {CPP_BINARY}.")
         return
 
     with open(OUTPUT_CSV, mode="w", newline="") as csv_file:
@@ -101,13 +72,11 @@ def main():
             topo = random.choice(TOPOLOGIES)
             print(f"\n[*] Sample {i}/{N_SAMPLES} | Topology (Linear): {topo}")
 
-            clean_old_files(i)
+            topo_file = OUTPUT_DIR / f"cbn_sample_{i}_topology.json"
+            py_dyn_file = OUTPUT_DIR / f"py_sample_{i}_dynamics.json"
+            cpp_dyn_file = OUTPUT_DIR / f"cpp_sample_{i}_dynamics.json"
 
-            topo_file = MIX_DIR / f"cbn_sample_{i}_topology.json"
-            py_dyn_file = MIX_DIR / f"py_sample_{i}_dynamics.json"
-            cpp_dyn_file = MIX_DIR / f"cpp_sample_{i}_dynamics.json"
-
-            # 1. Generar la red sintética lineal pequeña
+            # 1. Generate
             success, out = run_command(
                 [
                     sys.executable,
@@ -125,7 +94,7 @@ def main():
             if not success:
                 break
 
-            # 2. Ejecutar el Solver de Python verificado (Pipeline limpio sin Fuerza Bruta)
+            # 2. Python Solve
             success, out = run_command(
                 [
                     sys.executable,
@@ -143,7 +112,7 @@ def main():
                 py_res = json.load(f)
                 py_time = py_res["performance"]["total_ms"]
 
-            # 3. Ejecutar el Solver de C++
+            # 3. C++ Solve
             success, out = run_command(
                 [
                     str(CPP_BINARY),
@@ -152,38 +121,33 @@ def main():
                     "--input",
                     str(topo_file),
                     "--dir",
-                    str(MIX_DIR),
-                    "--output",
-                    str(MIX_DIR / "temp_bench.csv"),
+                    str(OUTPUT_DIR),
                 ]
             )
             if not success:
-                print(f"[FAIL] C++ Solver crashed on sample {i}")
                 writer.writerow(
                     {"sample_id": i, "topology": topo, "status": "CPP_CRASH"}
                 )
                 continue
 
-            # Capturar y renombrar la salida hardcodeada de C++ para la muestra actual
-            cpp_gen_file = MIX_DIR / "cbn_sample_1_AdvancedParallel_dynamics.json"
+            cpp_gen_file = OUTPUT_DIR / "cbn_sample_1_AdvancedParallel_dynamics.json"
             if cpp_gen_file.exists():
-                os.rename(cpp_gen_file, cpp_dyn_file)
+                cpp_gen_file.replace(cpp_dyn_file)
             else:
-                print(f"[Error] C++ didn't produce dynamics file. Output: {out}")
                 break
 
             with open(cpp_dyn_file) as f:
                 cpp_res = json.load(f)
+                # Performance moved to "performance" (wait, I used "performance" in C++ or "metrics"?)
+                # Looking at my cat for scientific_benchmarking.cpp: j_out["performance"] = { ... }
                 cpp_time = cpp_res["performance"]["total_ms"]
 
-            # 4. Control de calidad: Verificación canónica de paridad científica
-            is_equal, result = compare_dynamics(py_dyn_file, cpp_dyn_file)
+            # 4. Compare
+            is_equal, result = compare_dynamics(py_res, cpp_res)
 
             if is_equal:
                 speedup = py_time / cpp_time if cpp_time > 0 else 0
-                print(
-                    f"[OK] Parity match! Fields: {result} | Py: {py_time:.2f}ms | Cpp: {cpp_time:.2f}ms | Speedup: {speedup:.2f}x"
-                )
+                print(f"[OK] Parity match! Fields: {result}")
                 writer.writerow(
                     {
                         "sample_id": i,
@@ -197,11 +161,6 @@ def main():
                 )
             else:
                 print(f"🚨 [ERROR] PARITY DIVERGENCE in sample {i}!")
-                if isinstance(result, tuple):
-                    print(f"   -> Python attractor fields found: {len(result[0])}")
-                    print(f"   -> C++ attractor fields found: {len(result[1])}")
-                else:
-                    print(f"   -> Error detail: {result}")
                 writer.writerow(
                     {"sample_id": i, "topology": topo, "status": "PARITY_ERROR"}
                 )

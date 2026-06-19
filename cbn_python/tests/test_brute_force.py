@@ -1,9 +1,6 @@
-from unittest.mock import MagicMock
-
 import pytest
 from cbnetwork.internalvariable import InternalVariable
 from cbnetwork.localnetwork import LocalNetwork
-from cbnetwork.localscene import LocalScene
 
 
 class TestBruteForce:

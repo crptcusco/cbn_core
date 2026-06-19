@@ -1,4 +1,3 @@
-import pytest
 from cbnetwork.cbnetwork import CBN
 
 

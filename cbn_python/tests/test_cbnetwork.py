@@ -114,4 +114,3 @@ class TestCBN:
 
             assert edge.d_comp_pairs_attractors_by_value[0] == [(1, 2)]
             assert edge.d_comp_pairs_attractors_by_value[1] == [(3, 4)]
-

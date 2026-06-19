@@ -33,24 +33,140 @@ void export_network_structure_json(int sample_id, std::shared_ptr<CBN> cbn, cons
   cbn->save_network_to_json(filepath);
 }
 
-void export_dynamics_json(int sample_id, const std::string &strategy_name, std::shared_ptr<CBN> cbn, const ExperimentResults &res, const std::string &output_dir) {
+void export_full_trace_json(int sample_id, const std::string &strategy_name, std::shared_ptr<CBN> cbn, const ExperimentResults &res, const std::string &output_dir, const std::string& input_id, int topology_type) {
   std::string filepath = output_dir + "/" + get_filename(sample_id, strategy_name, "dynamics.json");
-  json j_dyn;
-  j_dyn["simulation_info"] = { {"nodes", (int)cbn->l_local_networks.size()}, {"v_elements", (int)(cbn->get_n_local_variables() * cbn->l_local_networks.size())} };
-  json j_attrs = json::array();
-  for (auto const& [id, field] : cbn->d_attractor_fields) {
-      json j_f; j_f["id"] = id; j_f["length"] = (int)field.size();
-      std::vector<int> sorted_field = field; std::sort(sorted_field.begin(), sorted_field.end());
-      j_f["states"] = sorted_field; j_attrs.push_back(j_f);
+  json j_out;
+
+  // 1. Topology Metadata
+  j_out["topology_metadata"] = {
+      {"topology_type", strategy_name},
+      {"topology_id", input_id},
+      {"nodes", (int)cbn->l_local_networks.size()},
+      {"v_elements", (int)(cbn->get_n_local_variables() * cbn->l_local_networks.size())}
+  };
+
+  // 2. Pipeline Execution
+  json j_pipeline;
+
+  // Step 1: Local Attractors
+  json j_step1 = json::array();
+  for (auto const& net : cbn->l_local_networks) {
+      for (auto const& scene : net->local_scenes) {
+          json j_net_scene;
+          j_net_scene["network_id"] = net->index;
+          j_net_scene["applied_function"] = "Logic_CNF";
+
+          json j_local_scenario = json::array();
+          if (!scene->l_values.empty()) {
+              for (char c : scene->l_values.at(0)) j_local_scenario.push_back(c - '0');
+          }
+          j_net_scene["local_scenario"] = j_local_scenario;
+
+          json j_attrs = json::array();
+          for (auto const& attr : scene->l_attractors) {
+              json j_attr;
+              j_attr["attractor_id"] = attr->l_index;
+              j_attr["global_id"] = attr->g_index;
+              j_attr["length"] = (int)attr->l_states.size();
+
+              json j_states_unpacked = json::array();
+              for (auto const& state : attr->l_states) {
+                  json j_state_vars;
+                  for (size_t i = 0; i < net->internal_variables.size(); ++i) {
+                      j_state_vars["var_" + std::to_string(net->internal_variables.at(i))] = state->l_variable_values.at(i);
+                  }
+                  j_states_unpacked.push_back(j_state_vars);
+              }
+              j_attr["states_unpacked"] = j_states_unpacked;
+              j_attrs.push_back(j_attr);
+          }
+          j_net_scene["attractors"] = j_attrs;
+          j_step1.push_back(j_net_scene);
+      }
   }
-  j_dyn["attractors"] = j_attrs;
-  j_dyn["sample_id"] = sample_id; j_dyn["strategy"] = strategy_name;
-  j_dyn["performance"] = {{"p1_ms", res.p1_ms}, {"p2_ms", res.p2_ms}, {"p3_ms", res.p3_ms}, {"total_ms", res.total_ms}};
-  std::ofstream out(filepath); if (out.is_open()) out << j_dyn.dump(4) << std::endl;
+  j_pipeline["step_1_local_attractors"] = j_step1;
+
+  // Step 2: Compatible Pairs
+  json j_step2 = json::array();
+  for (auto const& edge : cbn->l_directed_edges) {
+      for (int val : {0, 1}) {
+          if (edge->d_comp_pairs_attractors_by_value.count(val)) {
+              for (auto const& p : edge->d_comp_pairs_attractors_by_value.at(val)) {
+                  json j_pair;
+                  j_pair["source_network"] = edge->output_local_network;
+                  j_pair["target_network"] = edge->input_local_network;
+                  j_pair["source_attractor_id"] = p.first;
+                  j_pair["target_attractor_id"] = p.second;
+                  j_pair["coupling_value"] = val;
+                  j_pair["is_compatible"] = true;
+                  j_step2.push_back(j_pair);
+              }
+          }
+      }
+  }
+  j_pipeline["step_2_compatible_pairs"] = j_step2;
+
+  // Step 3: Global Fields
+  json j_step3;
+  j_step3["global_scenario"] = "N/A";
+
+  json j_fields = json::array();
+  for (auto const& [id, field] : cbn->d_attractor_fields) {
+      json j_f;
+      j_f["field_id"] = id;
+      j_f["attractor_indices"] = field;
+
+      json j_assembled = json::array();
+      for (int g_idx : field) {
+          if (cbn->d_local_attractors.count(g_idx)) {
+              auto info = cbn->d_local_attractors.at(g_idx);
+              json j_inf;
+              j_inf["net"] = std::get<0>(info);
+              j_inf["attr"] = g_idx;
+              j_assembled.push_back(j_inf);
+          }
+      }
+      j_f["assembled_from_attractors"] = j_assembled;
+
+      json j_global_unpacked = json::array();
+      json j_global_state_vars;
+      for (int g_idx : field) {
+          auto attr_ptr = cbn->get_local_attractor_by_index(g_idx);
+          if (attr_ptr && !attr_ptr->l_states.empty()) {
+              auto net = cbn->get_network_by_index(attr_ptr->network_index);
+              if (net) {
+                  auto first_state = attr_ptr->l_states.at(0);
+                  for (size_t i = 0; i < net->internal_variables.size(); ++i) {
+                      j_global_state_vars["var_" + std::to_string(net->internal_variables.at(i))] = first_state->l_variable_values.at(i);
+                  }
+              }
+          }
+      }
+      j_global_unpacked.push_back(j_global_state_vars);
+      j_f["global_state_unpacked"] = j_global_unpacked;
+
+      j_fields.push_back(j_f);
+  }
+  j_step3["attractor_fields"] = j_fields;
+  j_pipeline["step_3_global_fields"] = j_step3;
+
+  j_out["pipeline_execution"] = j_pipeline;
+
+  // 3. Performance Metrics (Ensuring it is named "performance" to match solver)
+  j_out["performance"] = {
+      {"step_1_ms", res.p1_ms},
+      {"step_2_ms", res.p2_ms},
+      {"step_3_ms", res.p3_ms},
+      {"total_ms", res.total_ms}
+  };
+
+  std::ofstream out(filepath);
+  if (out.is_open()) out << j_out.dump(4) << std::endl;
 }
 
 int main(int argc, char **argv) {
   int n_samples = 100, n_networks = 12, n_vars = 10, topology = 3;
+  bool debug_dump = false;
   std::string custom_output_file = "", custom_output_dir = "", input_json = "";
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
@@ -61,10 +177,16 @@ int main(int argc, char **argv) {
     else if (arg == "--output" && i + 1 < argc) custom_output_file = argv[++i];
     else if (arg == "--dir" && i + 1 < argc) custom_output_dir = argv[++i];
     else if (arg == "--input" && i + 1 < argc) { input_json = argv[++i]; n_samples = 1; }
+    else if (arg == "--debug-dump") debug_dump = true;
   }
   std::string output_dir = custom_output_dir.empty() ? "../experiments/results" : custom_output_dir;
   fs::create_directories(output_dir);
   std::string output_file = custom_output_file.empty() ? output_dir + "/benchmark_results.csv" : custom_output_file;
+
+  std::string input_id = "random_gen";
+  if (!input_json.empty()) {
+      input_id = fs::path(input_json).stem().string();
+  }
 
   std::vector<std::pair<std::string, std::unique_ptr<ExperimentStrategy>>> strategies;
   strategies.push_back({"Traditional", std::make_unique<TraditionalExperiment>()});
@@ -80,9 +202,18 @@ int main(int argc, char **argv) {
       if (!reference_cbn) throw std::runtime_error("CBN load failed");
       if (input_json.empty()) export_network_structure_json(sample_id, reference_cbn, output_dir);
       for (auto &s_pair : strategies) {
-        auto cbn = reference_cbn->clone(); auto results = s_pair.second->run(cbn);
+        auto cbn = reference_cbn->clone();
+        auto results = s_pair.second->run(cbn);
+        if (debug_dump && s_pair.first == "AdvancedParallel") {
+           std::cout << "\n--- DEBUG DUMP: LOCAL ATTRACTORS ---" << std::endl;
+           cbn->show_local_attractors();
+           std::cout << "\n--- DEBUG DUMP: COMPATIBLE PAIRS ---" << std::endl;
+           cbn->show_attractor_pairs();
+           std::cout << "\n--- DEBUG DUMP: ATTRACTOR FIELDS ---" << std::endl;
+           cbn->show_stable_attractor_fields();
+        }
         log_to_csv(output_file, results, sample_id, topology, n_networks, n_vars);
-        export_dynamics_json(sample_id, s_pair.first, cbn, results, output_dir);
+        export_full_trace_json(sample_id, s_pair.first, cbn, results, output_dir, input_id, topology);
       }
     } catch (const std::exception &e) { std::cerr << "Error: " << e.what() << std::endl; }
   }

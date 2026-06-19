@@ -1,10 +1,8 @@
 # import libraries
 from cbnetwork.cbnetwork import CBN
 from cbnetwork.directededge import DirectedEdge
-from cbnetwork.globaltopology import GlobalTopology
 from cbnetwork.internalvariable import InternalVariable
 from cbnetwork.localnetwork import LocalNetwork
-from cbnetwork.localtemplates import LocalNetworkTemplate
 
 # script to put a manual parameters for the example of 4 networks
 print("MESSAGE:", "1 FIXED 10 LINEAL CBN MANUAL SCRIPT EXAMPLE")
