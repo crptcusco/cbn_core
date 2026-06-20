@@ -200,23 +200,38 @@ def main():
         print(f"[Error] Input file {args.input} not found.")
         sys.exit(1)
 
+    # ... (después de cargar cbn)
     cbn = CBN.from_json(args.input)
-
+    
+    # INICIALIZAR VARIABLES PARA EVITAR EL NAMEERROR
+    s2_ms = 0
+    s3_ms = 0
     start_time = time.perf_counter()
 
-    # Consolidado: Usamos los métodos estables validados por la auditoría de paridad
-    print("[*] Running standard pipeline (Validation Parity Verified)...")
+    # Búsqueda de atractores
     cbn.find_local_attractors_sequential(use_brute_force=True)
+    
+    # Búsqueda de pares
+    s2_start = time.perf_counter()
     cbn.find_compatible_pairs()
+    
+    if cbn.get_n_pair_attractors() == 0:
+        cbn = CBN.from_json(args.input)
+        cbn.find_local_attractors_sequential(use_brute_force=True)
+        cbn.find_compatible_pairs()
+        
     s2_ms = (time.perf_counter() - s2_start) * 1000
 
-    # Step 3: Global Fields
-    s3_start = time.perf_counter()
-    cbn.mount_stable_attractor_fields_turbo()
-    s3_ms = (time.perf_counter() - s3_start) * 1000
+    # Paso de campos
+    if len(cbn.l_directed_edges) > 0:
+        s3_start = time.perf_counter()
+        cbn.mount_stable_attractor_fields_turbo()
+        s3_ms = (time.perf_counter() - s3_start) * 1000
 
-    end_time = time.perf_counter()
-    total_ms = (end_time - start_time) * 1000
+    # CÁLCULO FINAL DE TIEMPO
+    total_ms = (time.perf_counter() - start_time) * 1000
+    
+    # ... (ahora sí puedes usar total_ms en output_object)
 
     # Metadata
     topo_type = "N/A"
@@ -232,6 +247,18 @@ def main():
             "nodes": len(cbn.l_local_networks),
             "v_elements": len(cbn.l_local_networks) * cbn.get_n_local_variables(),
         },
+        "performance": {
+            "total_ms": total_ms,
+            "step_2_ms": s2_ms,
+            "step_3_ms": s3_ms
+        },
+        "pipeline_execution": {
+            "step_1_local_attractors": [],
+            "step_2_compatible_pairs": [],
+            "step_3_global_fields": {
+                "attractor_fields": []
+            }
+        }
     }
 
     # Populate Step 1: Local Attractors (Unpacked)
