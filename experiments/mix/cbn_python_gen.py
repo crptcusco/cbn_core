@@ -1,4 +1,5 @@
 import argparse
+import random
 import sys
 from pathlib import Path
 
@@ -26,16 +27,26 @@ class BitmaskCouplingStrategy(CouplingStrategy):
         elif self.cf.name == "AND":
             return " " + " ∧ ".join(map(str, output_variables)) + " "
         elif self.cf.name == "BUFFER":
-            return " " + str(output_variables[0]) + " "
+            # For buffer, we expect exactly 1 output variable
+            var_name = str(output_variables[0]) if output_variables else "0"
+            return " " + var_name + " "
         return " " + " ∨ ".join(map(str, output_variables)) + " "
 
     def to_cnf(
         self, output_variables: list[int], coupling_variable: int
     ) -> list[list[int]]:
+        # For parity with C++ which defaults to OR in most cases for CNF,
+        # let's stick with OR for now unless it's a known rule.
         clauses = []
-        for var in output_variables:
-            clauses.append([-var, coupling_variable])
-        clauses.append(output_variables + [-coupling_variable])
+        if self.cf.name == "AND":
+            # C <=> (V1 & V2 & ...)
+            for var in output_variables:
+                clauses.append([var, -coupling_variable])
+            clauses.append([-v for v in output_variables] + [coupling_variable])
+        else:  # Default OR (includes BUFFER k=1)
+            for var in output_variables:
+                clauses.append([-var, coupling_variable])
+            clauses.append(output_variables + [-coupling_variable])
         return clauses
 
 
@@ -46,32 +57,20 @@ def main():
         "--networks", type=int, default=4, help="Number of local networks"
     )
     parser.add_argument("--vars", type=int, default=5, help="Variables per network")
-    parser.add_argument("--output", type=str, required=False, help="Output JSON file")
+    parser.add_argument("--output", type=str, required=True, help="Output JSON file")
 
     args = parser.parse_args()
-
-    # Set default output directory
-    output_dir = Path("output")
-    output_dir.mkdir(exist_ok=True)
-
-    if not args.output:
-        output_path = (
-            output_dir / f"topology_{args.topology}_n{args.networks}_v{args.vars}.json"
-        )
-    else:
-        output_path = Path(args.output)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
 
     print(
         f"[*] Generating CBN: Topology={args.topology}, Networks={args.networks}, Vars={args.vars}"
     )
 
+    # Dynamic coupling factory
     def get_dynamic_coupling(k):
         if k == 1:
             return BitmaskCouplingStrategy(CouplingFactory.create_buffer_function())
         else:
-            import random
-
+            # Randomly choose between standard rules for k > 1
             choice = random.randint(0, 3)
             if choice == 0:
                 return BitmaskCouplingStrategy(CouplingFactory.create_or_function(k))
@@ -86,19 +85,17 @@ def main():
                     CouplingFactory.create_mixed_random_function(k)
                 )
 
-    strat = get_dynamic_coupling(1)  # k is 1 for now
-
     cbn = CBN.cbn_generator(
         v_topology=args.topology,
         n_local_networks=args.networks,
         n_vars_network=args.vars,
-        n_input_variables=1,
-        n_output_variables=1,
-        coupling_strategy=strat,
+        n_input_variables=1,  # This will be overridden by k in the generator
+        n_output_variables=1,  # This will be overridden by k in the generator
+        coupling_factory=get_dynamic_coupling,
     )
 
-    cbn.to_json(str(output_path))
-    print(f"[OK] Saved to {output_path}")
+    cbn.to_json(args.output)
+    print(f"[OK] Saved to {args.output}")
 
 
 if __name__ == "__main__":

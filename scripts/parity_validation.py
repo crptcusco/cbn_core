@@ -32,13 +32,12 @@ def compare_attractors(py_dyn_file, cpp_dyn_file):
         cpp_root = json.load(f)
 
     def get_canonical(root_data):
-        # Support both old and new structure during transition if needed
-        # New structure has "dynamics": {"attractors": [...]}
-        dyn_data = root_data.get("dynamics", root_data)
-        attrs = dyn_data.get("attractors", [])
+        pipeline = root_data.get("pipeline_execution", {})
+        step3 = pipeline.get("step_3_attractor_fields", {})
+        fields = step3.get("fields", [])
         canonical = []
-        for a in attrs:
-            states = a.get("states", [])
+        for f in fields:
+            states = f.get("states", [])
             canonical.append(tuple(sorted([int(s) for s in states])))
         return sorted(canonical)
 
