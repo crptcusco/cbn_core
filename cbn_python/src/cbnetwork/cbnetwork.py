@@ -1891,8 +1891,7 @@ class CBN:
                                 )
                             )
                             if not is_input_signal and abs_lit < 1000:
-                                # Temporary relaxation for template logic
-                                pass
+                                pass  # Log warning if needed
 
     def count_fields_by_global_scenes(self):
         """

@@ -865,8 +865,6 @@ void CBN::audit_indices() const {
               }
             }
             if (!is_input_signal && abs_lit < 1000) {
-              std::cerr << "Warning: Orphaned variable " << abs_lit
-                        << " in network " << net->index << std::endl;
             }
           }
         }

@@ -167,7 +167,6 @@ void export_full_trace_json(int sample_id, const std::string &strategy_name, std
 int main(int argc, char **argv) {
   int n_samples = 100, n_networks = 12, n_vars = 10, topology = 3;
   bool debug_dump = false;
-  bool audit_mode = false;
   std::string custom_output_file = "", custom_output_dir = "", input_json = "";
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
@@ -179,7 +178,6 @@ int main(int argc, char **argv) {
     else if (arg == "--dir" && i + 1 < argc) custom_output_dir = argv[++i];
     else if (arg == "--input" && i + 1 < argc) { input_json = argv[++i]; n_samples = 1; }
     else if (arg == "--debug-dump") debug_dump = true;
-    else if (arg == "--audit") audit_mode = true;
   }
   std::string output_dir = custom_output_dir.empty() ? "../experiments/results" : custom_output_dir;
   fs::create_directories(output_dir);
@@ -209,33 +207,15 @@ int main(int argc, char **argv) {
       if (input_json.empty())
         export_network_structure_json(sample_id, reference_cbn, output_dir);
       for (auto &s_pair : strategies) {
-        // Full lifecycle isolation: Use a clean clone for each strategy
         auto cbn = reference_cbn->clone();
-        cbn->clear_dynamics(); // Ensure stateless start even if clone was dirty
-
         auto results = s_pair.second->run(cbn);
-
-        if (audit_mode && s_pair.first == "AdvancedParallel") {
-          std::cout << "\n[AUDIT] Step 1: Local Attractors Summary" << std::endl;
-          for (auto &net : cbn->l_local_networks) {
-            std::cout << "  - Net " << net->index << ": " << net->attractor_count << " attractors" << std::endl;
-          }
-
-          int total_pairs = 0;
-          for (auto &edge : cbn->l_directed_edges) {
-            total_pairs += edge->d_comp_pairs_attractors_by_value[0].size() + edge->d_comp_pairs_attractors_by_value[1].size();
-          }
-          std::cout << "[AUDIT] Step 2: Compatible Pairs Total: " << total_pairs << std::endl;
-          std::cout << "[AUDIT] Step 3: Global Fields Total: " << cbn->d_attractor_fields.size() << std::endl;
-        }
-
         if (debug_dump && s_pair.first == "AdvancedParallel") {
-          std::cout << "\n--- DEBUG DUMP: LOCAL ATTRACTORS ---" << std::endl;
-          cbn->show_local_attractors();
-          std::cout << "\n--- DEBUG DUMP: COMPATIBLE PAIRS ---" << std::endl;
-          cbn->show_attractor_pairs();
-          std::cout << "\n--- DEBUG DUMP: ATTRACTOR FIELDS ---" << std::endl;
-          cbn->show_stable_attractor_fields();
+           std::cout << "\n--- DEBUG DUMP: LOCAL ATTRACTORS ---" << std::endl;
+           cbn->show_local_attractors();
+           std::cout << "\n--- DEBUG DUMP: COMPATIBLE PAIRS ---" << std::endl;
+           cbn->show_attractor_pairs();
+           std::cout << "\n--- DEBUG DUMP: ATTRACTOR FIELDS ---" << std::endl;
+           cbn->show_stable_attractor_fields();
         }
         log_to_csv(output_file, results, sample_id, topology, n_networks, n_vars);
         export_full_trace_json(sample_id, s_pair.first, cbn, results, output_dir, input_id, topology);
