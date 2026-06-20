@@ -203,34 +203,54 @@ CBN::_generate_local_scenes(std::shared_ptr<LocalNetwork> o_local_network) {
   return scenes;
 }
 
+void CBN::find_local_attractors() {
+#ifdef _OPENMP
+  find_local_attractors_parallel_with_weights();
+#else
+  find_local_attractors_sequential();
+#endif
+}
+
+void CBN::find_compatible_pairs() {
+#ifdef _OPENMP
+  find_compatible_pairs_parallel();
+#else
+  for (auto &edge : l_directed_edges) {
+    for (int val : {0, 1}) {
+      edge->d_comp_pairs_attractors_by_value[val].clear();
+      auto dst_attractors =
+          get_attractors_by_input_signal_value(edge->index_variable, val);
+      auto &src_attractors = edge->d_out_value_to_attractor[val];
+      edge->d_comp_pairs_attractors_by_value[val].reserve(
+          src_attractors.size() * dst_attractors.size());
+      for (auto &src_attr : src_attractors) {
+        for (auto &dst_attr : dst_attractors) {
+          edge->d_comp_pairs_attractors_by_value[val].push_back(
+              {src_attr->g_index, dst_attr->g_index});
+        }
+      }
+    }
+  }
+#endif
+}
+
+void CBN::mount_attractor_fields() { mount_stable_attractor_fields(); }
+
 void CBN::find_local_attractors_sequential() {
-  CustomText::make_title("FIND LOCAL ATTRACTORS");
   for (auto &net : l_local_networks) {
     auto scenes = _generate_local_scenes(net);
-    LocalNetwork::find_local_attractors_brute_force(net, scenes);
+    LocalNetwork::find_local_attractors_brute_force_turbo(net, scenes);
     process_kind_signal(net);
   }
   _assign_global_indices_to_attractors();
   generate_attractor_dictionary();
-  CustomText::make_sub_sub_title("END FIND LOCAL ATTRACTORS");
 }
 
 void CBN::find_local_attractors_parallel() {
-  CustomText::make_title("FIND LOCAL ATTRACTORS PARALLEL");
-#pragma omp parallel for
-  for (int i = 0; i < (int)l_local_networks.size(); ++i) {
-    auto &net = l_local_networks[i];
-    auto scenes = _generate_local_scenes(net);
-    LocalNetwork::find_local_attractors_brute_force(net, scenes);
-    process_kind_signal(net);
-  }
-  _assign_global_indices_to_attractors();
-  generate_attractor_dictionary();
-  CustomText::make_sub_sub_title("END FIND LOCAL ATTRACTORS PARALLEL");
+  find_local_attractors_parallel_with_weights();
 }
 
 void CBN::find_local_attractors_parallel_with_weights() {
-  CustomText::make_title("FIND LOCAL ATTRACTORS WEIGHTED");
   struct WeightedNet {
     long weight;
     std::shared_ptr<LocalNetwork> net;
@@ -263,15 +283,16 @@ void CBN::find_local_attractors_parallel_with_weights() {
 #pragma omp parallel
   {
     int tid = omp_get_thread_num();
-    for (auto &net : buckets[tid]) {
-      auto scenes = _generate_local_scenes(net);
-      LocalNetwork::find_local_attractors_brute_force(net, scenes);
-      process_kind_signal(net);
+    if (tid < (int)buckets.size()) {
+      for (auto &net : buckets[tid]) {
+        auto scenes = _generate_local_scenes(net);
+        LocalNetwork::find_local_attractors_brute_force_turbo(net, scenes);
+        process_kind_signal(net);
+      }
     }
   }
   _assign_global_indices_to_attractors();
   generate_attractor_dictionary();
-  CustomText::make_sub_sub_title("END FIND LOCAL ATTRACTORS WEIGHTED");
 }
 
 void CBN::generate_attractor_dictionary() {
@@ -378,24 +399,8 @@ std::shared_ptr<LocalNetwork> CBN::get_network_by_index(int index) {
   return nullptr;
 }
 
-void CBN::find_compatible_pairs() {
-  for (auto &edge : l_directed_edges) {
-    for (int val : {0, 1}) {
-      edge->d_comp_pairs_attractors_by_value[val].clear();
-      auto dst_attractors =
-          get_attractors_by_input_signal_value(edge->index_variable, val);
-      for (auto &src_attr : edge->d_out_value_to_attractor[val]) {
-        for (auto &dst_attr : dst_attractors) {
-          edge->d_comp_pairs_attractors_by_value[val].push_back(
-              {src_attr->g_index, dst_attr->g_index});
-        }
-      }
-    }
-  }
-}
 
 void CBN::find_compatible_pairs_parallel() {
-  CustomText::make_title("FIND COMPATIBLE ATTRACTOR PAIRS (PARALLEL)");
 #pragma omp parallel for
   for (int i = 0; i < (int)l_directed_edges.size(); ++i) {
     auto &edge = l_directed_edges.at(i);
@@ -422,65 +427,14 @@ void CBN::find_compatible_pairs_parallel() {
       }
     }
   }
-  CustomText::make_sub_sub_title(
-      "END FIND COMPATIBLE ATTRACTOR PAIRS (PARALLEL)");
 }
 
 void CBN::find_compatible_pairs_parallel_with_weights() {
-  CustomText::make_title("FIND COMPATIBLE PAIRS WEIGHTED");
-  struct WeightedEdge {
-    long weight;
-    std::shared_ptr<DirectedEdge> edge;
-  };
-  std::vector<WeightedEdge> weighted_edges;
-  for (auto &edge : l_directed_edges) {
-    long w = (long)(edge->d_out_value_to_attractor[0].size() +
-                    edge->d_out_value_to_attractor[1].size());
-    weighted_edges.push_back({w, edge});
-  }
-  std::sort(weighted_edges.begin(), weighted_edges.end(),
-            [](const auto &a, const auto &b) { return a.weight > b.weight; });
-
-  int num_threads = omp_get_max_threads();
-  std::vector<std::vector<std::shared_ptr<DirectedEdge>>> buckets(num_threads);
-  std::vector<long> bucket_weights(num_threads, 0);
-  for (auto &we : weighted_edges) {
-    int best_idx = 0;
-    long min_w = bucket_weights[0];
-    for (int i = 1; i < num_threads; ++i) {
-      if (bucket_weights[i] < min_w) {
-        min_w = bucket_weights[i];
-        best_idx = i;
-      }
-    }
-    buckets[best_idx].push_back(we.edge);
-    bucket_weights[best_idx] += we.weight;
-  }
-
-#pragma omp parallel
-  {
-    int tid = omp_get_thread_num();
-    for (auto &edge : buckets[tid]) {
-      for (int val : {0, 1}) {
-        edge->d_comp_pairs_attractors_by_value[val].clear();
-        auto dst_attractors =
-            get_attractors_by_input_signal_value(edge->index_variable, val);
-        for (auto &src_attr : edge->d_out_value_to_attractor[val]) {
-          for (auto &dst_attr : dst_attractors) {
-            edge->d_comp_pairs_attractors_by_value[val].push_back(
-                {src_attr->g_index, dst_attr->g_index});
-          }
-        }
-      }
-    }
-  }
-  CustomText::make_sub_sub_title("END FIND COMPATIBLE PAIRS WEIGHTED");
+  find_compatible_pairs_parallel();
 }
 
 void CBN::find_compatible_pairs_turbo() {
-  CustomText::make_title("FIND COMPATIBLE PAIRS TURBO");
   find_compatible_pairs_parallel();
-  CustomText::make_sub_sub_title("END FIND COMPATIBLE PAIRS TURBO");
 }
 
 void CBN::mount_stable_attractor_fields_parallel() {
@@ -488,13 +442,10 @@ void CBN::mount_stable_attractor_fields_parallel() {
 }
 
 void CBN::mount_stable_attractor_fields_parallel_chunks() {
-  CustomText::make_title("MOUNT ATTRACTOR FIELDS CHUNKS");
   mount_stable_attractor_fields();
-  CustomText::make_sub_sub_title("END MOUNT ATTRACTOR FIELDS CHUNKS");
 }
 
 void CBN::mount_stable_attractor_fields() {
-  CustomText::make_title("FIND ATTRACTOR FIELDS");
   if (l_directed_edges.empty()) {
     d_attractor_fields.clear();
     return;
@@ -585,9 +536,6 @@ void CBN::mount_stable_attractor_fields() {
     d_attractor_fields[i + 1] = current_fields[i];
   }
 
-  CustomText::make_sub_sub_title("END MOUNT STABLE ATTRACTOR FIELDS (Total:" +
-                                 std::to_string(d_attractor_fields.size()) +
-                                 ")");
 }
 
 void CBN::mount_stable_attractor_fields_turbo() {
@@ -958,7 +906,7 @@ void CBN::clear_dynamics() {
       edge->d_out_value_to_attractor[1].clear();
       edge->d_comp_pairs_attractors_by_value[0].clear();
       edge->d_comp_pairs_attractors_by_value[1].clear();
-      edge->kind_signal = 0;
+      edge->kind_signal = 2; // NOT COMPUTE
     }
   }
 }
@@ -1111,8 +1059,6 @@ void CBN::_assign_global_indices_to_attractors() {
   }
 }
 
-void CBN::generate_global_scenes() {}
-void CBN::count_fields_by_global_scenes() {}
 
 int CBN::get_n_local_variables() const {
   if (l_local_networks.empty())

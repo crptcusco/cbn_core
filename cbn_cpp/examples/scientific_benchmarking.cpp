@@ -197,10 +197,15 @@ int main(int argc, char **argv) {
     int sample_id = s + 1;
     try {
       std::shared_ptr<CBN> reference_cbn;
-      if (!input_json.empty()) reference_cbn = CBN::load_network_from_json(input_json);
-      else reference_cbn = CBN::cbn_generator(topology, n_networks, n_vars, 1, 1);
-      if (!reference_cbn) throw std::runtime_error("CBN load failed");
-      if (input_json.empty()) export_network_structure_json(sample_id, reference_cbn, output_dir);
+      if (!input_json.empty()) {
+        reference_cbn = CBN::load_network_from_json(input_json);
+      } else {
+        reference_cbn = CBN::cbn_generator(topology, n_networks, n_vars, 1, 1);
+      }
+      if (!reference_cbn)
+        throw std::runtime_error("CBN load failed");
+      if (input_json.empty())
+        export_network_structure_json(sample_id, reference_cbn, output_dir);
       for (auto &s_pair : strategies) {
         auto cbn = reference_cbn->clone();
         auto results = s_pair.second->run(cbn);

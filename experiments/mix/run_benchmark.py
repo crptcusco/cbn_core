@@ -155,6 +155,8 @@ def main():
 
             with open(cpp_dyn_file) as f:
                 cpp_res = json.load(f)
+                # Performance moved to "performance" (wait, I used "performance" in C++ or "metrics"?)
+                # Looking at my cat for scientific_benchmarking.cpp: j_out["performance"] = { ... }
                 cpp_time = cpp_res["performance"]["total_ms"]
 
             # 4. Compare

@@ -35,12 +35,16 @@ public:
     void process_output_signals();
     bool update_network_by_index(std::shared_ptr<LocalNetwork> o_local_network_update);
 
+    // Unified API Entry Points (Preferred)
+    void find_local_attractors();
+    void find_compatible_pairs();
+    void mount_attractor_fields();
+
+    // Specific Implementations (Variants)
     void find_local_attractors_sequential();
     void find_local_attractors_parallel();
     void find_local_attractors_parallel_with_weights();
-    void find_local_attractors_brute_force_turbo();
 
-    void find_compatible_pairs();
     void find_compatible_pairs_parallel();
     void find_compatible_pairs_parallel_with_weights();
     void find_compatible_pairs_turbo();
@@ -57,8 +61,6 @@ public:
 
     void generate_attractor_dictionary();
     void process_kind_signal(std::shared_ptr<LocalNetwork> o_local_network);
-    void generate_global_scenes();
-    void count_fields_by_global_scenes();
 
     static bool evaluate_pair(const std::vector<int>& base_pairs,
                              const std::pair<int, int>& candidate_pair,

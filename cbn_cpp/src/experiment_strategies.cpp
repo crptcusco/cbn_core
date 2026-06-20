@@ -40,25 +40,17 @@ ExperimentResults TraditionalExperiment::run(std::shared_ptr<CBN> cbn) {
   auto start_total = high_resolution_clock::now();
 
   auto start1 = high_resolution_clock::now();
-  for (auto &net : cbn->l_local_networks) {
-    if (net->local_scenes.empty()) {
-      auto scenes = cbn->_generate_local_scenes(net);
-      LocalNetwork::find_local_attractors_brute_force(net, scenes);
-    }
-    cbn->process_kind_signal(net);
-  }
-  cbn->_assign_global_indices_to_attractors();
-  cbn->generate_attractor_dictionary();
+  cbn->find_local_attractors_sequential();
   auto end1 = high_resolution_clock::now();
   res.p1_ms = duration<double, std::milli>(end1 - start1).count();
 
   auto start2 = high_resolution_clock::now();
-  cbn->find_compatible_pairs();
+  cbn->find_compatible_pairs(); // Will use sequential path if OMP=1
   auto end2 = high_resolution_clock::now();
   res.p2_ms = duration<double, std::milli>(end2 - start2).count();
 
   auto start3 = high_resolution_clock::now();
-  cbn->mount_stable_attractor_fields();
+  cbn->mount_attractor_fields();
   auto end3 = high_resolution_clock::now();
   res.p3_ms = duration<double, std::milli>(end3 - start3).count();
 
@@ -78,44 +70,17 @@ ExperimentResults SimpleParallelExperiment::run(std::shared_ptr<CBN> cbn) {
   auto start_total = high_resolution_clock::now();
 
   auto start1 = high_resolution_clock::now();
-#pragma omp parallel for
-  for (int i = 0; i < (int)cbn->l_local_networks.size(); ++i) {
-    auto &net = cbn->l_local_networks.at(i);
-    if (net->local_scenes.empty()) {
-      auto scenes = cbn->_generate_local_scenes(net);
-      LocalNetwork::find_local_attractors_brute_force(net, scenes);
-    }
-    cbn->process_kind_signal(net);
-  }
-  cbn->_assign_global_indices_to_attractors();
-  cbn->generate_attractor_dictionary();
+  cbn->find_local_attractors_parallel();
   auto end1 = high_resolution_clock::now();
   res.p1_ms = duration<double, std::milli>(end1 - start1).count();
 
   auto start2 = high_resolution_clock::now();
-#pragma omp parallel for
-  for (int i = 0; i < (int)cbn->l_directed_edges.size(); ++i) {
-    auto &edge = cbn->l_directed_edges.at(i);
-    for (int val : {0, 1}) {
-      edge->d_comp_pairs_attractors_by_value[val].clear();
-      auto dst_attractors =
-          cbn->get_attractors_by_input_signal_value(edge->index_variable, val);
-      auto &src_attractors = edge->d_out_value_to_attractor[val];
-      edge->d_comp_pairs_attractors_by_value[val].reserve(
-          src_attractors.size() * dst_attractors.size());
-      for (auto &src_attr : src_attractors) {
-        for (auto &dst_attr : dst_attractors) {
-          edge->d_comp_pairs_attractors_by_value[val].push_back(
-              {src_attr->g_index, dst_attr->g_index});
-        }
-      }
-    }
-  }
+  cbn->find_compatible_pairs_parallel();
   auto end2 = high_resolution_clock::now();
   res.p2_ms = duration<double, std::milli>(end2 - start2).count();
 
   auto start3 = high_resolution_clock::now();
-  cbn->mount_stable_attractor_fields();
+  cbn->mount_attractor_fields();
   auto end3 = high_resolution_clock::now();
   res.p3_ms = duration<double, std::milli>(end3 - start3).count();
   auto end_total = high_resolution_clock::now();
@@ -133,87 +98,17 @@ ExperimentResults AdvancedParallelExperiment::run(std::shared_ptr<CBN> cbn) {
   auto start_total = high_resolution_clock::now();
 
   auto start1 = high_resolution_clock::now();
-  struct WeightedNet {
-    long weight;
-    std::shared_ptr<LocalNetwork> net;
-  };
-  std::vector<WeightedNet> weighted_nets;
-  for (auto &net : cbn->l_local_networks) {
-    long w = (long)net->internal_variables.size() *
-             (1L << net->input_signals.size());
-    weighted_nets.push_back({w, net});
-  }
-  std::sort(weighted_nets.begin(), weighted_nets.end(),
-            [](const auto &a, const auto &b) { return a.weight > b.weight; });
-  int num_threads = omp_get_max_threads();
-  std::vector<std::vector<std::shared_ptr<LocalNetwork>>> buckets(num_threads);
-  std::vector<long> bucket_weights(num_threads, 0);
-  for (auto &wn : weighted_nets) {
-    int best_idx = 0;
-    long min_w = bucket_weights[0];
-    for (int i = 1; i < num_threads; ++i) {
-      if (bucket_weights[i] < min_w) {
-        min_w = bucket_weights[i];
-        best_idx = i;
-      }
-    }
-    buckets[best_idx].push_back(wn.net);
-    bucket_weights[best_idx] += wn.weight;
-  }
-#pragma omp parallel
-  {
-    int tid = omp_get_thread_num();
-    if (tid < (int)buckets.size()) {
-      for (auto &net : buckets[tid]) {
-        if (net->local_scenes.empty()) {
-          auto scenes = cbn->_generate_local_scenes(net);
-          LocalNetwork::find_local_attractors_brute_force(net, scenes);
-        }
-        cbn->process_kind_signal(net);
-      }
-    }
-  }
-  cbn->_assign_global_indices_to_attractors();
-  cbn->generate_attractor_dictionary();
+  cbn->find_local_attractors();
   auto end1 = high_resolution_clock::now();
   res.p1_ms = duration<double, std::milli>(end1 - start1).count();
 
   auto start2 = high_resolution_clock::now();
-  std::map<int, std::vector<int>> var_to_gindices[2];
-  for (auto &net : cbn->l_local_networks) {
-    for (auto &scene : net->local_scenes) {
-      for (size_t i = 0; i < scene->l_index_signals.size(); ++i) {
-        int var_idx = scene->l_index_signals.at(i);
-        int val = scene->l_values.at(0).at(i) - '0';
-        if (val == 0 || val == 1) {
-          for (auto &attr : scene->l_attractors)
-            var_to_gindices[val][var_idx].push_back(attr->g_index);
-        }
-      }
-    }
-  }
-#pragma omp parallel for
-  for (int i = 0; i < (int)cbn->l_directed_edges.size(); ++i) {
-    auto &edge = cbn->l_directed_edges.at(i);
-    for (int val : {0, 1}) {
-      edge->d_comp_pairs_attractors_by_value[val].clear();
-      auto &dst_g_indices = var_to_gindices[val][edge->index_variable];
-      auto &src_attractors = edge->d_out_value_to_attractor[val];
-      edge->d_comp_pairs_attractors_by_value[val].reserve(
-          src_attractors.size() * dst_g_indices.size());
-      for (auto &src_attr : src_attractors) {
-        for (int dst_g_idx : dst_g_indices)
-          edge->d_comp_pairs_attractors_by_value[val].push_back(
-              {src_attr->g_index, dst_g_idx});
-      }
-    }
-  }
+  cbn->find_compatible_pairs();
   auto end2 = high_resolution_clock::now();
   res.p2_ms = duration<double, std::milli>(end2 - start2).count();
 
   auto start3 = high_resolution_clock::now();
-  cbn->mount_stable_attractor_fields_turbo(); // Using the corrected
-                                              // combinatorial logic
+  cbn->mount_attractor_fields();
   auto end3 = high_resolution_clock::now();
   res.p3_ms = duration<double, std::milli>(end3 - start3).count();
   auto end_total = high_resolution_clock::now();
