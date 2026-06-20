@@ -100,13 +100,17 @@ class LocalNetworkTemplate:
             "Output variables for coupling signal: %s", self.l_output_var_indexes
         )
 
-    def get_output_variables_from_template(self, i_local_network, l_local_networks):
+    def get_output_variables_from_template(
+        self, i_local_network, l_local_networks, k=None
+    ):
         """
         Retrieve output variables from the template based on the local network index.
 
         Args:
             i_local_network (int): Index of the local network.
             l_local_networks (list): List of local network objects.
+            k (int, optional): Number of variables to retrieve. If None, uses
+                the fixed list from the template.
 
         Returns:
             list: List of output variables for the specified local network.
@@ -114,8 +118,25 @@ class LocalNetworkTemplate:
         l_variables = []
         for o_local_network in l_local_networks:
             if o_local_network.index == i_local_network:
-                for position in self.l_output_var_indexes:
-                    l_variables.append(o_local_network.internal_variables[position - 1])
+                if k is not None:
+                    # Dynamic sampling based on k.
+                    # We use a fixed seed based on network index to maintain
+                    # reproducibility if needed, but since we are in a generator
+                    # that uses random, let's just use the current random state.
+                    # Note: to ensure parity with C++, we'll need to be careful.
+                    indices = random.sample(
+                        range(len(o_local_network.internal_variables)),
+                        min(k, len(o_local_network.internal_variables)),
+                    )
+                    for idx in sorted(indices):
+                        l_variables.append(o_local_network.internal_variables[idx])
+                else:
+                    # Use fixed template indices
+                    for position in self.l_output_var_indexes:
+                        l_variables.append(
+                            o_local_network.internal_variables[position - 1]
+                        )
+                break
 
         return l_variables
 

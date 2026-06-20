@@ -19,7 +19,7 @@ from .cbnetwork_utils import cartesian_product_mod as _cartesian_product_mod
 from .cbnetwork_utils import evaluate_pair as _evaluate_pair
 from .cbnetwork_utils import flatten as _flatten
 from .cbnetwork_utils import process_single_base_pair as _process_single_base_pair
-from .coupling import CouplingStrategy, OrCoupling
+from .coupling import CouplingStrategy
 from .directededge import DirectedEdge
 
 # internal imports
@@ -1931,7 +1931,8 @@ class CBN:
         n_max_of_clauses: Optional[int] = None,
         n_max_of_literals: Optional[int] = None,
         n_edges: Optional[int] = None,
-        coupling_strategy: CouplingStrategy = OrCoupling(),
+        coupling_strategy: Optional[CouplingStrategy] = None,
+        coupling_factory=None,
     ) -> "CBN":
         """Factory method to generate a complete CBN from high-level parameters.
         This is the primary entry point for creating a CBN. It automates the
@@ -1981,6 +1982,7 @@ class CBN:
             o_template=o_template,
             l_global_edges=o_global_topology.l_edges,
             coupling_strategy=coupling_strategy,
+            coupling_factory=coupling_factory,
         )
         return o_cbn
 
@@ -2042,7 +2044,8 @@ class CBN:
         n_vars_network,
         o_template,
         l_global_edges,
-        coupling_strategy: CouplingStrategy,
+        coupling_strategy: Optional[CouplingStrategy] = None,
+        coupling_factory=None,
     ):
         """
         Generates a CBN (Coupled Boolean Network) using a given template and global edges.
@@ -2082,12 +2085,20 @@ class CBN:
                     f"Invalid input_local_network index {input_local_network} in global_edges. "
                     f"Valid indices are: {sorted(list(valid_network_indices))}"
                 )
-            # Get the output variables from the template
+            # Calculate in-degree (k) for this specific target node
+            k = len([e for e in l_global_edges if e[1] == input_local_network])
+
+            # Determine coupling strategy for this edge
+            current_strategy = coupling_strategy
+            if coupling_factory is not None:
+                current_strategy = coupling_factory(k)
+
+            # Get the output variables from the template, now passing k
             l_output_variables = o_template.get_output_variables_from_template(
-                output_local_network, l_local_networks
+                output_local_network, l_local_networks, k=k
             )
             # Generate the coupling function
-            coupling_function = coupling_strategy.generate_coupling_function(
+            coupling_function = current_strategy.generate_coupling_function(
                 l_output_variables
             )
             # Create the DirectedEdge object
@@ -2100,10 +2111,12 @@ class CBN:
                 coupling_function=coupling_function,
             )
             # Check if strategy has bitmask support
-            if hasattr(coupling_strategy, "coupling_type"):
-                o_directed_edge.coupling_type = coupling_strategy.coupling_type
-            if hasattr(coupling_strategy, "bitmask"):
-                o_directed_edge.bitmask = coupling_strategy.bitmask
+            if hasattr(current_strategy, "coupling_type"):
+                o_directed_edge.coupling_type = current_strategy.coupling_type
+            if hasattr(current_strategy, "bitmask"):
+                o_directed_edge.bitmask = current_strategy.bitmask
+            # Store strategy for CNF generation later
+            o_directed_edge._strategy = current_strategy
             i_last_variable += 1
             i_directed_edge += 1
             # Add the DirectedEdge object to the list
@@ -2124,8 +2137,10 @@ class CBN:
         )
         # Integrate the CNF for the coupling logic
         for edge in l_directed_edges:
+            # Use the stored strategy for this specific edge
+            edge_strategy = getattr(edge, "_strategy", coupling_strategy)
             # Generate the CNF clauses for the coupling function
-            coupling_cnf = coupling_strategy.to_cnf(
+            coupling_cnf = edge_strategy.to_cnf(
                 edge.l_output_variables, edge.index_variable
             )
             # Create an InternalVariable for the coupling signal
