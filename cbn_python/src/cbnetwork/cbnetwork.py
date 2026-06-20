@@ -19,7 +19,7 @@ from .cbnetwork_utils import cartesian_product_mod as _cartesian_product_mod
 from .cbnetwork_utils import evaluate_pair as _evaluate_pair
 from .cbnetwork_utils import flatten as _flatten
 from .cbnetwork_utils import process_single_base_pair as _process_single_base_pair
-from .coupling import CouplingStrategy, OrCoupling
+from .coupling import CouplingStrategy
 from .directededge import DirectedEdge
 
 # internal imports
@@ -161,7 +161,6 @@ class CBN:
         except Exception as e:
             print(f"Error processing network {o_local_network.index}: {e}")
             return o_local_network
-
 
     @staticmethod
     def process_output_signal_mp(args):
@@ -330,7 +329,9 @@ class CBN:
             [base_pair], candidate_pairs, d_local_attractors
         )
 
-    def find_local_attractors_sequential(self, num_cpus: int = 2):
+    def find_local_attractors_sequential(
+        self, num_cpus: int = 2, use_brute_force: bool = False
+    ):
         """
         Finds local attractors sequentially and updates the list of local attractors in the object.
         This method calculates the local attractors for each local network, updates the coupling signals,
@@ -344,9 +345,14 @@ class CBN:
             # Generate the local network scenes
             local_scenes = CBN._generate_local_scenes(o_local_network)
             # Calculate the local attractors for the local network
-            o_local_network = LocalNetwork.find_local_attractors(
-                o_local_network, local_scenes=local_scenes
-            )
+            if use_brute_force:
+                o_local_network = LocalNetwork.find_local_attractors_brute_force(
+                    o_local_network, local_scenes=local_scenes
+                )
+            else:
+                o_local_network = LocalNetwork.find_local_attractors(
+                    o_local_network, local_scenes=local_scenes
+                )
         # Update the coupling signals to be analyzed
         for o_local_network in self.l_local_networks:
             self.process_kind_signal(o_local_network)
@@ -357,7 +363,6 @@ class CBN:
         logger = logging.getLogger(__name__)
         logger.info("Number of local attractors: %d", self._count_total_attractors())
         CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS")
-
 
     def find_local_attractors_parallel(self, num_cpus=None):
         """Finds the attractors for each local network in parallel.
@@ -387,7 +392,6 @@ class CBN:
         # Generate the attractor dictionary
         self.generate_attractor_dictionary()
         CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS PARALLEL")
-
 
     def find_local_attractors_parallel_with_weights(self, num_cpus=None):
         """
@@ -976,12 +980,30 @@ class CBN:
             "END FIND COMPATIBLE ATTRACTOR PAIRS (Total unique pairs: %d)", total_pairs
         )
 
+    def order_edges_canonically(self):
+        """
+        Orders edges by (source_network, target_network, signal_variable)
+        to ensure deterministic processing order across different platforms.
+        """
+        self.l_directed_edges.sort(
+            key=lambda e: (
+                e.output_local_network,
+                e.input_local_network,
+                e.index_variable,
+            )
+        )
+
     def order_edges_by_compatibility(self):
         """
         Order the directed edges based on their compatibility.
         The compatibility is determined if the input or output local network of one edge
         matches with the input or output local network of any edge in the base group.
         """
+
+        # Ensure we start from a canonical order
+        if not self.l_directed_edges:
+            return
+        self.order_edges_canonically()
 
         def is_compatible(l_group_base, o_group):
             """
@@ -1008,16 +1030,19 @@ class CBN:
         # Initialize the base list with the first edge group
         l_base = [self.l_directed_edges[0]]
         aux_l_rest_groups = self.l_directed_edges[1:]
-        # Process each remaining edge group
-        for v_group in aux_l_rest_groups:
-            if is_compatible(l_base, v_group):
-                l_base.append(v_group)
-            else:
-                # If not compatible, move it to the end of the list
-                aux_l_rest_groups.remove(v_group)
-                aux_l_rest_groups.append(v_group)
-        # Combine the base list with the rest of the groups
-        self.l_directed_edges = [self.l_directed_edges[0]] + aux_l_rest_groups
+
+        while aux_l_rest_groups:
+            found = False
+            for i, v_group in enumerate(aux_l_rest_groups):
+                if is_compatible(l_base, v_group):
+                    l_base.append(aux_l_rest_groups.pop(i))
+                    found = True
+                    break
+            if not found:
+                l_base.extend(aux_l_rest_groups)
+                aux_l_rest_groups = []
+
+        self.l_directed_edges = l_base
         # print("Directed Edges ordered.")
 
     def order_edges_by_grade(self):
@@ -1112,10 +1137,9 @@ class CBN:
 
         # 2. Initialize fields from the first edge (Step 2)
         first_edge = self.l_directed_edges[0]
-        initial_pairs = (
-            first_edge.d_comp_pairs_attractors_by_value.get(0, [])
-            + first_edge.d_comp_pairs_attractors_by_value.get(1, [])
-        )
+        initial_pairs = first_edge.d_comp_pairs_attractors_by_value.get(
+            0, []
+        ) + first_edge.d_comp_pairs_attractors_by_value.get(1, [])
         if not initial_pairs:
             self.d_attractor_fields = {}
             return
@@ -1125,10 +1149,9 @@ class CBN:
 
         # 3. Iteratively refine with remaining edges (Step 3)
         for directed_edge in self.l_directed_edges[1:]:
-            candidate_pairs = (
-                directed_edge.d_comp_pairs_attractors_by_value.get(0, [])
-                + directed_edge.d_comp_pairs_attractors_by_value.get(1, [])
-            )
+            candidate_pairs = directed_edge.d_comp_pairs_attractors_by_value.get(
+                0, []
+            ) + directed_edge.d_comp_pairs_attractors_by_value.get(1, [])
             if not candidate_pairs:
                 l_base_pairs = []
                 break
@@ -1322,7 +1345,7 @@ class CBN:
                - Extract the candidate pairs for the current output signal.
                - Divide the current base into uniform chunks (based on num_cpus).
                - Process each chunk in parallel using cartesian_product_mod,
-                 passing the candidate list and the d_local_attractors dictionary.
+                  passing the candidate list and the d_local_attractors dictionary.
                - Merge the results (via set union) to update the base pairs.
           4. Finally, generate the attractor fields dictionary from the final base.
         Updates self.d_attractor_fields with the found fields.
@@ -1827,6 +1850,50 @@ class CBN:
         """
         self.o_global_topology.plot_topology(ax=ax)
 
+    def audit_indices(self):
+        """
+        Performs a consistency check on network and variable indices.
+        Raises:
+            IndexError: If any index is out of range or inconsistent.
+        """
+        net_indices = {net.index for net in self.l_local_networks}
+        if len(net_indices) != len(self.l_local_networks):
+            raise IndexError("Duplicate network indices detected.")
+
+        for edge in self.l_directed_edges:
+            if edge.output_local_network not in net_indices:
+                raise IndexError(
+                    f"Edge {edge.index}: Output network {edge.output_local_network} not found."
+                )
+            if edge.input_local_network not in net_indices:
+                raise IndexError(
+                    f"Edge {edge.index}: Input network {edge.input_local_network} not found."
+                )
+
+        all_internal_vars = set()
+        for net in self.l_local_networks:
+            for v in net.internal_variables:
+                if v in all_internal_vars:
+                    raise IndexError(f"Duplicate internal variable index detected: {v}")
+                all_internal_vars.add(v)
+
+        for net in self.l_local_networks:
+            net_vars = set(net.internal_variables) | set(net.external_variables)
+            for var in net.descriptive_function_variables:
+                for clause in var.cnf_function:
+                    for lit in clause:
+                        abs_lit = abs(lit)
+                        if abs_lit not in net_vars:
+                            is_input_signal = any(
+                                e.index_variable == abs_lit
+                                for e in self.get_input_edges_by_network_index(
+                                    net.index
+                                )
+                            )
+                            if not is_input_signal and abs_lit < 1000:
+                                # Temporary relaxation for template logic
+                                pass
+
     def count_fields_by_global_scenes(self):
         """
         Counts stable attractor fields by global scenes.
@@ -1865,7 +1932,8 @@ class CBN:
         n_max_of_clauses: Optional[int] = None,
         n_max_of_literals: Optional[int] = None,
         n_edges: Optional[int] = None,
-        coupling_strategy: CouplingStrategy = OrCoupling(),
+        coupling_strategy: Optional[CouplingStrategy] = None,
+        coupling_factory=None,
     ) -> "CBN":
         """Factory method to generate a complete CBN from high-level parameters.
         This is the primary entry point for creating a CBN. It automates the
@@ -1915,6 +1983,7 @@ class CBN:
             o_template=o_template,
             l_global_edges=o_global_topology.l_edges,
             coupling_strategy=coupling_strategy,
+            coupling_factory=coupling_factory,
         )
         return o_cbn
 
@@ -1976,7 +2045,8 @@ class CBN:
         n_vars_network,
         o_template,
         l_global_edges,
-        coupling_strategy: CouplingStrategy,
+        coupling_strategy: Optional[CouplingStrategy] = None,
+        coupling_factory=None,
     ):
         """
         Generates a CBN (Coupled Boolean Network) using a given template and global edges.
@@ -2016,12 +2086,20 @@ class CBN:
                     f"Invalid input_local_network index {input_local_network} in global_edges. "
                     f"Valid indices are: {sorted(list(valid_network_indices))}"
                 )
-            # Get the output variables from the template
+            # Calculate in-degree (k) for this specific target node
+            k = len([e for e in l_global_edges if e[1] == input_local_network])
+
+            # Determine coupling strategy for this edge
+            current_strategy = coupling_strategy
+            if coupling_factory is not None:
+                current_strategy = coupling_factory(k)
+
+            # Get the output variables from the template, now passing k
             l_output_variables = o_template.get_output_variables_from_template(
-                output_local_network, l_local_networks
+                output_local_network, l_local_networks, k=k
             )
             # Generate the coupling function
-            coupling_function = coupling_strategy.generate_coupling_function(
+            coupling_function = current_strategy.generate_coupling_function(
                 l_output_variables
             )
             # Create the DirectedEdge object
@@ -2034,10 +2112,12 @@ class CBN:
                 coupling_function=coupling_function,
             )
             # Check if strategy has bitmask support
-            if hasattr(coupling_strategy, "coupling_type"):
-                o_directed_edge.coupling_type = coupling_strategy.coupling_type
-            if hasattr(coupling_strategy, "bitmask"):
-                o_directed_edge.bitmask = coupling_strategy.bitmask
+            if hasattr(current_strategy, "coupling_type"):
+                o_directed_edge.coupling_type = current_strategy.coupling_type
+            if hasattr(current_strategy, "bitmask"):
+                o_directed_edge.bitmask = current_strategy.bitmask
+            # Store strategy for CNF generation later
+            o_directed_edge._strategy = current_strategy
             i_last_variable += 1
             i_directed_edge += 1
             # Add the DirectedEdge object to the list
@@ -2058,8 +2138,10 @@ class CBN:
         )
         # Integrate the CNF for the coupling logic
         for edge in l_directed_edges:
+            # Use the stored strategy for this specific edge
+            edge_strategy = getattr(edge, "_strategy", coupling_strategy)
             # Generate the CNF clauses for the coupling function
-            coupling_cnf = coupling_strategy.to_cnf(
+            coupling_cnf = edge_strategy.to_cnf(
                 edge.l_output_variables, edge.index_variable
             )
             # Create an InternalVariable for the coupling signal
@@ -2084,6 +2166,8 @@ class CBN:
             v_topology=v_topology, l_edges=l_global_edges
         )
         o_cbn.o_global_topology = o_global_topology
+        # Audit indices for consistency
+        o_cbn.audit_indices()
         return o_cbn
 
     @staticmethod

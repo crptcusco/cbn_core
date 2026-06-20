@@ -48,9 +48,23 @@ void CBN::process_output_signals() {
   }
 }
 
+void CBN::order_edges_canonically() {
+  std::sort(l_directed_edges.begin(), l_directed_edges.end(),
+            [](const std::shared_ptr<DirectedEdge> &a,
+               const std::shared_ptr<DirectedEdge> &b) {
+              if (a->output_local_network != b->output_local_network)
+                return a->output_local_network < b->output_local_network;
+              if (a->input_local_network != b->input_local_network)
+                return a->input_local_network < b->input_local_network;
+              return a->index_variable < b->index_variable;
+            });
+}
+
 void CBN::order_edges_by_compatibility() {
   if (l_directed_edges.empty())
     return;
+
+  order_edges_canonically();
 
   auto is_compatible =
       [](const std::vector<std::shared_ptr<DirectedEdge>> &l_group_base,
@@ -189,34 +203,54 @@ CBN::_generate_local_scenes(std::shared_ptr<LocalNetwork> o_local_network) {
   return scenes;
 }
 
+void CBN::find_local_attractors() {
+#ifdef _OPENMP
+  find_local_attractors_parallel_with_weights();
+#else
+  find_local_attractors_sequential();
+#endif
+}
+
+void CBN::find_compatible_pairs() {
+#ifdef _OPENMP
+  find_compatible_pairs_parallel();
+#else
+  for (auto &edge : l_directed_edges) {
+    for (int val : {0, 1}) {
+      edge->d_comp_pairs_attractors_by_value[val].clear();
+      auto dst_attractors =
+          get_attractors_by_input_signal_value(edge->index_variable, val);
+      auto &src_attractors = edge->d_out_value_to_attractor[val];
+      edge->d_comp_pairs_attractors_by_value[val].reserve(
+          src_attractors.size() * dst_attractors.size());
+      for (auto &src_attr : src_attractors) {
+        for (auto &dst_attr : dst_attractors) {
+          edge->d_comp_pairs_attractors_by_value[val].push_back(
+              {src_attr->g_index, dst_attr->g_index});
+        }
+      }
+    }
+  }
+#endif
+}
+
+void CBN::mount_attractor_fields() { mount_stable_attractor_fields(); }
+
 void CBN::find_local_attractors_sequential() {
-  CustomText::make_title("FIND LOCAL ATTRACTORS");
   for (auto &net : l_local_networks) {
     auto scenes = _generate_local_scenes(net);
-    LocalNetwork::find_local_attractors_brute_force(net, scenes);
+    LocalNetwork::find_local_attractors_brute_force_turbo(net, scenes);
     process_kind_signal(net);
   }
   _assign_global_indices_to_attractors();
   generate_attractor_dictionary();
-  CustomText::make_sub_sub_title("END FIND LOCAL ATTRACTORS");
 }
 
 void CBN::find_local_attractors_parallel() {
-  CustomText::make_title("FIND LOCAL ATTRACTORS PARALLEL");
-#pragma omp parallel for
-  for (int i = 0; i < (int)l_local_networks.size(); ++i) {
-    auto &net = l_local_networks[i];
-    auto scenes = _generate_local_scenes(net);
-    LocalNetwork::find_local_attractors_brute_force(net, scenes);
-    process_kind_signal(net);
-  }
-  _assign_global_indices_to_attractors();
-  generate_attractor_dictionary();
-  CustomText::make_sub_sub_title("END FIND LOCAL ATTRACTORS PARALLEL");
+  find_local_attractors_parallel_with_weights();
 }
 
 void CBN::find_local_attractors_parallel_with_weights() {
-  CustomText::make_title("FIND LOCAL ATTRACTORS WEIGHTED");
   struct WeightedNet {
     long weight;
     std::shared_ptr<LocalNetwork> net;
@@ -249,15 +283,16 @@ void CBN::find_local_attractors_parallel_with_weights() {
 #pragma omp parallel
   {
     int tid = omp_get_thread_num();
-    for (auto &net : buckets[tid]) {
-      auto scenes = _generate_local_scenes(net);
-      LocalNetwork::find_local_attractors_brute_force(net, scenes);
-      process_kind_signal(net);
+    if (tid < (int)buckets.size()) {
+      for (auto &net : buckets[tid]) {
+        auto scenes = _generate_local_scenes(net);
+        LocalNetwork::find_local_attractors_brute_force_turbo(net, scenes);
+        process_kind_signal(net);
+      }
     }
   }
   _assign_global_indices_to_attractors();
   generate_attractor_dictionary();
-  CustomText::make_sub_sub_title("END FIND LOCAL ATTRACTORS WEIGHTED");
 }
 
 void CBN::generate_attractor_dictionary() {
@@ -364,24 +399,8 @@ std::shared_ptr<LocalNetwork> CBN::get_network_by_index(int index) {
   return nullptr;
 }
 
-void CBN::find_compatible_pairs() {
-  for (auto &edge : l_directed_edges) {
-    for (int val : {0, 1}) {
-      edge->d_comp_pairs_attractors_by_value[val].clear();
-      auto dst_attractors =
-          get_attractors_by_input_signal_value(edge->index_variable, val);
-      for (auto &src_attr : edge->d_out_value_to_attractor[val]) {
-        for (auto &dst_attr : dst_attractors) {
-          edge->d_comp_pairs_attractors_by_value[val].push_back(
-              {src_attr->g_index, dst_attr->g_index});
-        }
-      }
-    }
-  }
-}
 
 void CBN::find_compatible_pairs_parallel() {
-  CustomText::make_title("FIND COMPATIBLE ATTRACTOR PAIRS (PARALLEL)");
 #pragma omp parallel for
   for (int i = 0; i < (int)l_directed_edges.size(); ++i) {
     auto &edge = l_directed_edges.at(i);
@@ -408,65 +427,14 @@ void CBN::find_compatible_pairs_parallel() {
       }
     }
   }
-  CustomText::make_sub_sub_title(
-      "END FIND COMPATIBLE ATTRACTOR PAIRS (PARALLEL)");
 }
 
 void CBN::find_compatible_pairs_parallel_with_weights() {
-  CustomText::make_title("FIND COMPATIBLE PAIRS WEIGHTED");
-  struct WeightedEdge {
-    long weight;
-    std::shared_ptr<DirectedEdge> edge;
-  };
-  std::vector<WeightedEdge> weighted_edges;
-  for (auto &edge : l_directed_edges) {
-    long w = (long)(edge->d_out_value_to_attractor[0].size() +
-                    edge->d_out_value_to_attractor[1].size());
-    weighted_edges.push_back({w, edge});
-  }
-  std::sort(weighted_edges.begin(), weighted_edges.end(),
-            [](const auto &a, const auto &b) { return a.weight > b.weight; });
-
-  int num_threads = omp_get_max_threads();
-  std::vector<std::vector<std::shared_ptr<DirectedEdge>>> buckets(num_threads);
-  std::vector<long> bucket_weights(num_threads, 0);
-  for (auto &we : weighted_edges) {
-    int best_idx = 0;
-    long min_w = bucket_weights[0];
-    for (int i = 1; i < num_threads; ++i) {
-      if (bucket_weights[i] < min_w) {
-        min_w = bucket_weights[i];
-        best_idx = i;
-      }
-    }
-    buckets[best_idx].push_back(we.edge);
-    bucket_weights[best_idx] += we.weight;
-  }
-
-#pragma omp parallel
-  {
-    int tid = omp_get_thread_num();
-    for (auto &edge : buckets[tid]) {
-      for (int val : {0, 1}) {
-        edge->d_comp_pairs_attractors_by_value[val].clear();
-        auto dst_attractors =
-            get_attractors_by_input_signal_value(edge->index_variable, val);
-        for (auto &src_attr : edge->d_out_value_to_attractor[val]) {
-          for (auto &dst_attr : dst_attractors) {
-            edge->d_comp_pairs_attractors_by_value[val].push_back(
-                {src_attr->g_index, dst_attr->g_index});
-          }
-        }
-      }
-    }
-  }
-  CustomText::make_sub_sub_title("END FIND COMPATIBLE PAIRS WEIGHTED");
+  find_compatible_pairs_parallel();
 }
 
 void CBN::find_compatible_pairs_turbo() {
-  CustomText::make_title("FIND COMPATIBLE PAIRS TURBO");
   find_compatible_pairs_parallel();
-  CustomText::make_sub_sub_title("END FIND COMPATIBLE PAIRS TURBO");
 }
 
 void CBN::mount_stable_attractor_fields_parallel() {
@@ -474,13 +442,10 @@ void CBN::mount_stable_attractor_fields_parallel() {
 }
 
 void CBN::mount_stable_attractor_fields_parallel_chunks() {
-  CustomText::make_title("MOUNT ATTRACTOR FIELDS CHUNKS");
   mount_stable_attractor_fields();
-  CustomText::make_sub_sub_title("END MOUNT ATTRACTOR FIELDS CHUNKS");
 }
 
 void CBN::mount_stable_attractor_fields() {
-  CustomText::make_title("FIND ATTRACTOR FIELDS");
   if (l_directed_edges.empty()) {
     d_attractor_fields.clear();
     return;
@@ -571,14 +536,9 @@ void CBN::mount_stable_attractor_fields() {
     d_attractor_fields[i + 1] = current_fields[i];
   }
 
-  CustomText::make_sub_sub_title("END MOUNT STABLE ATTRACTOR FIELDS (Total:" +
-                                 std::to_string(d_attractor_fields.size()) +
-                                 ")");
 }
 
 void CBN::mount_stable_attractor_fields_turbo() {
-  // For now, Turbo sequentially calls the corrected combinatorial method
-  // In larger systems, this can be accelerated with parallel kernels
   mount_stable_attractor_fields();
 }
 
@@ -713,6 +673,7 @@ CBN::cbn_generator(int v_topology, int n_local_networks, int n_vars_network,
   }
   auto cbn = std::make_shared<CBN>(networks, edges);
   cbn->o_global_topology = o_topo;
+  cbn->audit_indices();
   return cbn;
 }
 
@@ -849,6 +810,71 @@ void CBN::show_directed_edges() const {
   }
 }
 
+void CBN::audit_indices() const {
+  std::set<int> net_indices;
+  std::set<int> all_internal_vars;
+
+  for (const auto &net : l_local_networks) {
+    if (net_indices.count(net->index)) {
+      throw std::runtime_error("Duplicate network index detected: " +
+                               std::to_string(net->index));
+    }
+    net_indices.insert(net->index);
+
+    for (int v : net->internal_variables) {
+      if (all_internal_vars.count(v)) {
+        throw std::runtime_error("Duplicate internal variable index detected: " +
+                                 std::to_string(v));
+      }
+      all_internal_vars.insert(v);
+    }
+  }
+
+  for (const auto &edge : l_directed_edges) {
+    if (net_indices.find(edge->output_local_network) == net_indices.end()) {
+      throw std::runtime_error("Edge " + std::to_string(edge->index) +
+                               ": Output network " +
+                               std::to_string(edge->output_local_network) +
+                               " not found.");
+    }
+    if (net_indices.find(edge->input_local_network) == net_indices.end()) {
+      throw std::runtime_error("Edge " + std::to_string(edge->index) +
+                               ": Input network " +
+                               std::to_string(edge->input_local_network) +
+                               " not found.");
+    }
+  }
+
+  for (const auto &net : l_local_networks) {
+    std::set<int> net_vars(net->internal_variables.begin(),
+                           net->internal_variables.end());
+    net_vars.insert(net->external_variables.begin(),
+                    net->external_variables.end());
+
+    for (const auto &var : net->descriptive_function_variables) {
+      for (const auto &clause : var->cnf_function) {
+        for (int lit : clause) {
+          int abs_lit = std::abs(lit);
+          if (net_vars.find(abs_lit) == net_vars.end()) {
+            bool is_input_signal = false;
+            for (const auto &edge : l_directed_edges) {
+              if (edge->input_local_network == net->index &&
+                  edge->index_variable == abs_lit) {
+                is_input_signal = true;
+                break;
+              }
+            }
+            if (!is_input_signal && abs_lit < 1000) {
+              std::cerr << "Warning: Orphaned variable " << abs_lit
+                        << " in network " << net->index << std::endl;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 void CBN::save_attractor_fields_to_json(const std::string &filepath) {
   using json = nlohmann::json;
   json j_fields = json::array();
@@ -882,7 +908,7 @@ void CBN::clear_dynamics() {
       edge->d_out_value_to_attractor[1].clear();
       edge->d_comp_pairs_attractors_by_value[0].clear();
       edge->d_comp_pairs_attractors_by_value[1].clear();
-      edge->kind_signal = 0;
+      edge->kind_signal = 2; // NOT COMPUTE
     }
   }
 }
@@ -893,7 +919,6 @@ std::shared_ptr<CBN> CBN::clone() const {
   for (const auto &net : l_local_networks) {
     auto cloned_net =
         std::make_shared<LocalNetwork>(net->index, net->internal_variables);
-    // Copy InternalVariable pointers (logic is immutable)
     cloned_net->descriptive_function_variables =
         net->descriptive_function_variables;
     cloned_networks.push_back(cloned_net);
@@ -906,15 +931,14 @@ std::shared_ptr<CBN> CBN::clone() const {
         edge->index, edge->index_variable, edge->input_local_network,
         edge->output_local_network, edge->l_output_variables,
         edge->coupling_function);
-    cloned_edge->true_table = edge->true_table; // Deep copy map
+    cloned_edge->true_table = edge->true_table;
     cloned_edges.push_back(cloned_edge);
   }
 
   auto cloned_cbn = std::make_shared<CBN>(cloned_networks, cloned_edges);
   cloned_cbn->o_global_topology =
-      o_global_topology; // Shared immutable topology
+      o_global_topology;
 
-  // Re-link input/output signals
   for (auto &net : cloned_cbn->l_local_networks) {
     std::vector<std::shared_ptr<DirectedEdge>> inputs;
     for (auto &edge : cloned_cbn->l_directed_edges) {
@@ -1037,8 +1061,6 @@ void CBN::_assign_global_indices_to_attractors() {
   }
 }
 
-void CBN::generate_global_scenes() {}
-void CBN::count_fields_by_global_scenes() {}
 
 int CBN::get_n_local_variables() const {
   if (l_local_networks.empty())

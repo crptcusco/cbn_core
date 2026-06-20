@@ -1,13 +1,14 @@
 import argparse
+import random
 import sys
 from pathlib import Path
 
 # Add src to path
 sys.path.append(str(Path(__file__).resolve().parents[2] / "cbn_python" / "src"))
 
-from cbnetwork.cbnetwork import CBN  # noqa: E402  # noqa: E402
-from cbnetwork.coupling import CouplingStrategy  # noqa: E402  # noqa: E402
-from cbnetwork.coupling_bitmask import CouplingFactory  # noqa: E402  # noqa: E402
+from cbnetwork.cbnetwork import CBN  # noqa: E402
+from cbnetwork.coupling import CouplingStrategy  # noqa: E402
+from cbnetwork.coupling_bitmask import CouplingFactory  # noqa: E402
 
 
 class BitmaskCouplingStrategy(CouplingStrategy):
@@ -21,27 +22,31 @@ class BitmaskCouplingStrategy(CouplingStrategy):
         self.bitmask = coupling_func.bitmask
 
     def generate_coupling_function(self, output_variables: list[int]) -> str:
-        # For legacy compatibility, we still produce a string
-        # though bitmask will take precedence in the solver.
-        # We use OR logic string if it's a known rule, else something simple.
         if self.cf.name == "OR":
             return " " + " ∨ ".join(map(str, output_variables)) + " "
         elif self.cf.name == "AND":
             return " " + " ∧ ".join(map(str, output_variables)) + " "
         elif self.cf.name == "BUFFER":
-            return " " + str(output_variables[0]) + " "
+            # For buffer, we expect exactly 1 output variable
+            var_name = str(output_variables[0]) if output_variables else "0"
+            return " " + var_name + " "
         return " " + " ∨ ".join(map(str, output_variables)) + " "
 
     def to_cnf(
         self, output_variables: list[int], coupling_variable: int
     ) -> list[list[int]]:
-        # Bitmask-to-CNF conversion (simplified: OR logic if unsure)
-        # In a real scenario, this should convert the truth table to CNF.
-        # For the purpose of this task, we'll use a basic OR to not break the SAT flow.
+        # For parity with C++ which defaults to OR in most cases for CNF,
+        # let's stick with OR for now unless it's a known rule.
         clauses = []
-        for var in output_variables:
-            clauses.append([-var, coupling_variable])
-        clauses.append(output_variables + [-coupling_variable])
+        if self.cf.name == "AND":
+            # C <=> (V1 & V2 & ...)
+            for var in output_variables:
+                clauses.append([var, -coupling_variable])
+            clauses.append([-v for v in output_variables] + [coupling_variable])
+        else:  # Default OR (includes BUFFER k=1)
+            for var in output_variables:
+                clauses.append([-var, coupling_variable])
+            clauses.append(output_variables + [-coupling_variable])
         return clauses
 
 
@@ -60,18 +65,12 @@ def main():
         f"[*] Generating CBN: Topology={args.topology}, Networks={args.networks}, Vars={args.vars}"
     )
 
-    # Determine coupling based on number of output variables
-    # (Actually here n_output_variables is fixed to 1 in the call below)
-    # The request says: "detecte dinámicamente cuántas señales de salida recibe cada nodo de acoplamiento"
-    # In cbn_generator, n_output_variables is the number of variables from a local network
-    # that form ONE coupling signal.
-
-    # We can inject a custom coupling factory logic here
+    # Dynamic coupling factory
     def get_dynamic_coupling(k):
         if k == 1:
             return BitmaskCouplingStrategy(CouplingFactory.create_buffer_function())
         else:
-            # Randomly choose between standard rules
+            # Randomly choose between standard rules for k > 1
             choice = random.randint(0, 3)
             if choice == 0:
                 return BitmaskCouplingStrategy(CouplingFactory.create_or_function(k))
@@ -86,23 +85,13 @@ def main():
                     CouplingFactory.create_mixed_random_function(k)
                 )
 
-    import random
-
-    # Note: cbn_generator takes ONE coupling_strategy for all edges.
-    # To support dynamic coupling per edge, we'd need to modify cbn_generator
-    # or pass a factory.
-
-    # For now, let's use a Mixed Random function if k > 1, else Buffer.
-    k = 1  # fixed in original script
-    strat = get_dynamic_coupling(k)
-
     cbn = CBN.cbn_generator(
         v_topology=args.topology,
         n_local_networks=args.networks,
         n_vars_network=args.vars,
-        n_input_variables=1,
-        n_output_variables=1,
-        coupling_strategy=strat,
+        n_input_variables=1,  # This will be overridden by k in the generator
+        n_output_variables=1,  # This will be overridden by k in the generator
+        coupling_factory=get_dynamic_coupling,
     )
 
     cbn.to_json(args.output)
