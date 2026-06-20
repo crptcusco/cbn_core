@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 # Configuración
-N_SAMPLES = 20
+N_SAMPLES = 100
 TOPOLOGIES = [1, 2, 3, 7, 9]  # complete, linear, cycle, dm, sf
 NETWORKS_RANGE = (3, 6)
 VARS_RANGE = (3, 5)
@@ -27,22 +27,21 @@ def run_command(cmd):
 
 def compare_attractors(py_dyn_file, cpp_dyn_file):
     with open(py_dyn_file) as f:
-        py_root = json.load(f)
+        py_data = json.load(f)
     with open(cpp_dyn_file) as f:
-        cpp_root = json.load(f)
+        cpp_data = json.load(f)
 
-    def get_canonical(root_data):
-        pipeline = root_data.get("pipeline_execution", {})
-        step3 = pipeline.get("step_3_attractor_fields", {})
-        fields = step3.get("fields", [])
+    def get_canonical(data):
+        attrs = data.get("attractors", [])
         canonical = []
-        for f in fields:
-            states = f.get("states", [])
+        for a in attrs:
+            states = a.get("states", [])
+            # Some formats might have id as string or int
             canonical.append(tuple(sorted([int(s) for s in states])))
         return sorted(canonical)
 
-    py_can = get_canonical(py_root)
-    cpp_can = get_canonical(cpp_root)
+    py_can = get_canonical(py_data)
+    cpp_can = get_canonical(cpp_data)
 
     return py_can == cpp_can, py_can, cpp_can
 
