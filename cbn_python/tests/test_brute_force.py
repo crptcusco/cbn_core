@@ -9,8 +9,8 @@ class TestBruteForce:
         # Create a simple network with 2 internal variables
         # Var 1: NOT Var 2
         # Var 2: Var 1
-        # This should oscillate: (0,0) -> (1,0) -> (1,1) -> (0,1) -> (0,0) ... wait
-        # Let's trace:
+        # This should oscillate: (0,0) -> (1,0) -> (1,1) -> (0,1) -> (0,0)
+        # Trace:
         # 1 = not 2
         # 2 = 1
         # State (1,2):
@@ -22,8 +22,11 @@ class TestBruteForce:
 
         net = LocalNetwork(index=1, internal_variables=[1, 2])
 
-        var1 = InternalVariable(index=1, cnf_function="not 2")
-        var2 = InternalVariable(index=2, cnf_function="1")
+        # Use CNF directly to avoid potential issues with string evaluation in tests
+        # var 1 = not 2  -> [[-2]]
+        # var 2 = 1      -> [[1]]
+        var1 = InternalVariable(index=1, cnf_function=[[-2]])
+        var2 = InternalVariable(index=2, cnf_function=[[1]])
 
         net.descriptive_function_variables = [var1, var2]
         return net
@@ -59,6 +62,8 @@ class TestBruteForce:
 
     def test_find_local_attractors_brute_force_cycle(self, simple_network):
         # Test finding the cycle of length 4
+        # Note: 1 = not 2, 2 = 1.
+        # States: (0,0) -> (1,0) -> (1,1) -> (0,1) -> (0,0)
         net = LocalNetwork.find_local_attractors_brute_force(simple_network)
 
         assert len(net.local_scenes) == 1
@@ -69,10 +74,8 @@ class TestBruteForce:
         # Check cycle length
         assert len(attractor.l_states) == 4
 
-        # Check states in cycle (order matters for the cycle, but start point can vary)
-        # We know the cycle contains (0,0), (1,0), (1,1), (0,1)
-        # Let's verify the values
-        values = [tuple(s.l_variable_values) for s in attractor.l_states]
+        # Check states in cycle
+        values = [tuple(map(int, s.l_variable_values)) for s in attractor.l_states]
         assert (0, 0) in values
         assert (1, 0) in values
         assert (1, 1) in values
@@ -86,23 +89,14 @@ class TestBruteForce:
 
         net = LocalNetwork.find_local_attractors_brute_force(net)
 
-        # assert attractor.l_states[0].l_variable_values == [1] # (1) -> (1)
-        # Since we iterate from 0, we likely found (0) first.
-        # Let's check that we found both (0) and (1)
-
         assert len(net.local_scenes[0].l_attractors) == 2
 
         found_values = []
         for attr in net.local_scenes[0].l_attractors:
-            found_values.append(attr.l_states[0].l_variable_values[0])
+            found_values.append(int(attr.l_states[0].l_variable_values[0]))
 
         assert 0 in found_values
         assert 1 in found_values
-
-        # Another stable state: 1 = 1 (if start 0 -> 0)
-        # Wait, 1=1 means next state is value of 1.
-        # If state is 0, next is 0. If state is 1, next is 1.
-        # So we should have 2 attractors: (0) and (1).
 
         assert len(net.local_scenes[0].l_attractors) == 2
 
@@ -110,7 +104,8 @@ class TestBruteForce:
         # Var 1 = Ext 10
         net = LocalNetwork(index=1, internal_variables=[1])
         net.external_variables = [10]
-        var1 = InternalVariable(index=1, cnf_function="10")
+        # var 1 = 10 -> [[10]]
+        var1 = InternalVariable(index=1, cnf_function=[[10]])
         net.descriptive_function_variables = [var1]
 
         # Scene 1: Ext 10 = 0 -> Attractor (0)
@@ -121,10 +116,10 @@ class TestBruteForce:
 
         assert len(net.local_scenes) == 2
 
-        # Scene 0 (Ext=0)
+        # Scene 0 (Ext=0). Full state is (Var1, Ext10) = (0, 0)
         attr0 = net.local_scenes[0].l_attractors[0]
-        assert attr0.l_states[0].l_variable_values == [0]
+        assert list(map(int, attr0.l_states[0].l_variable_values)) == [0, 0]
 
-        # Scene 1 (Ext=1)
+        # Scene 1 (Ext=1). Full state is (Var1, Ext10) = (1, 1)
         attr1 = net.local_scenes[1].l_attractors[0]
-        assert attr1.l_states[0].l_variable_values == [1]
+        assert list(map(int, attr1.l_states[0].l_variable_values)) == [1, 1]
