@@ -2378,11 +2378,29 @@ class CBN:
     def get_global_scene_attractor_fields(self):
         return self.d_global_scenes_count
 
-    def to_json_topology(self) -> dict:
+    def to_json_topology(self, metadata: dict = None) -> dict:
         """
         Returns structural data of the CBN in a raw format (lists and dictionaries).
         """
-        data = {"local_networks": [], "directed_edges": []}
+        metadata = metadata or {}
+        data = {
+            "cbn_params": {
+                "n_local_networks": len(self.l_local_networks),
+                "n_total_variables": sum(
+                    len(net.internal_variables) for net in self.l_local_networks
+                ),
+                "n_input_variables": metadata.get("n_input_variables"),
+                "n_output_variables": metadata.get("n_output_variables"),
+                "v_topology": self.o_global_topology.v_topology
+                if self.o_global_topology
+                else metadata.get("v_topology"),
+                "n_clauses_function": metadata.get("n_clauses_function"),
+                "coupling_function_type": metadata.get("coupling_function_type"),
+                "n_edges": len(self.l_directed_edges),
+            },
+            "local_networks": [],
+            "directed_edges": [],
+        }
         for net in self.l_local_networks:
             net_data = {
                 "index": net.index,

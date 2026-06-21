@@ -13,7 +13,7 @@ from cbnetwork.utils.customtext import CustomText
 """
 Experiment 1 - Test the path and 3_ring_aleatory structures 
 using aleatory generated template for the local network.
-Refactored for JSON data contract (to_json_...) and performance tracking.
+DEFINITIVE REFACTOR: Established master JSON contract with self-describing topology.
 """
 
 # experiment parameters
@@ -90,12 +90,21 @@ for i_sample in range(1, N_SAMPLES + 1):
         v_end_find_fields = time.time()
         n_time_find_fields = v_end_find_fields - v_begin_find_fields
 
-        # Data extraction and storage with descriptive naming to avoid collisions
+        # Data extraction and storage with the requested strict naming pattern
         base_name = f"sample_{i_sample}_topo_{V_TOPOLOGY}_nets_{n_local_networks}"
 
-        # Save structural data
+        # Metadata for self-describing topology
+        metadata = {
+            "n_input_variables": N_INPUT_VARIABLES,
+            "n_output_variables": N_OUTPUT_VARIABLES,
+            "v_topology": V_TOPOLOGY,
+            "n_clauses_function": N_CLAUSES_FUNCTION,
+            "coupling_function_type": "OR" # Default for PathCircleTemplate
+        }
+
+        # Save structural data (Topology)
         with (DIRECTORY_JSON / f"{base_name}_topology.json").open("w") as f:
-            json.dump(o_cbn.to_json_topology(), f, indent=4)
+            json.dump(o_cbn.to_json_topology(metadata=metadata), f, indent=4)
 
         # Save attractor data
         with (DIRECTORY_JSON / f"{base_name}_attractors.json").open("w") as f:
@@ -118,7 +127,7 @@ for i_sample in range(1, N_SAMPLES + 1):
             ]
             f.write(",".join(map(str, metrics)) + "\n")
 
-        print(f"Data and metrics saved for sample {i_sample} (nets: {n_local_networks})")
+        print(f"Data and metrics saved for {base_name}")
         CustomText.print_duplex_line()
         CustomText.print_stars()
     CustomText.print_dollars()
