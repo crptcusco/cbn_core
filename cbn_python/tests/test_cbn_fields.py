@@ -10,6 +10,7 @@ class DummyLocalNetwork:
 class DummyEdge:
     def __init__(self, idx, inp, out, comp_pairs=None):
         self.index = idx
+        self.index_variable = idx + 1000
         self.input_local_network = inp
         self.output_local_network = out
         # comp_pairs expected as dict {0: [...], 1: [...]}

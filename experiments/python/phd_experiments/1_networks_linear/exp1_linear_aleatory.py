@@ -1,24 +1,19 @@
-# external imports
-import os
-import pickle
+import json
 import sys
 import time
 from pathlib import Path
-
-import pandas as pd
 
 # Add project root to sys.path to allow importing from cbn_python/src
 root_dir = Path(__file__).resolve().parents[4]
 sys.path.append(str(root_dir / "cbn_python" / "src"))
 
 from cbnetwork.localtemplates import PathCircleTemplate
-
-# local imports
 from cbnetwork.utils.customtext import CustomText
 
 """
 Experiment 1 - Test the path and 3_ring_aleatory structures 
 using aleatory generated template for the local network 
+Refactored for JSON data contract and performance tracking.
 """
 
 # experiment parameters
@@ -31,9 +26,6 @@ N_INPUT_VARIABLES = 2
 V_TOPOLOGY = 4
 N_CLAUSES_FUNCTION = 2
 
-# verbose parameters
-SHOW_MESSAGES = True
-
 # Begin the Experiment
 print("BEGIN THE EXPERIMENT")
 print("=" * 80)
@@ -44,137 +36,89 @@ v_begin_exp = time.time()
 # Experiment Name
 EXPERIMENT_NAME = "exp1_linear_aleatory"
 
-# Create the 'outputs' directory if it doesn't exist
-OUTPUT_FOLDER = "outputs"
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+# Create the 'outputs' directory if it doesn't exist using pathlib
+OUTPUT_FOLDER = Path("outputs")
+OUTPUT_FOLDER.mkdir(exist_ok=True)
 
 # create an experiment directory by parameters
-DIRECTORY_PATH = (
-    OUTPUT_FOLDER
-    + "/"
-    + EXPERIMENT_NAME
-    + "_"
-    + str(N_LOCAL_NETWORKS_MIN)
-    + "_"
-    + str(N_LOCAL_NETWORKS_MAX)
-    + "_"
-    + str(N_SAMPLES)
-)
-os.makedirs(DIRECTORY_PATH, exist_ok=True)
+DIRECTORY_PATH = OUTPUT_FOLDER / f"{EXPERIMENT_NAME}_{N_LOCAL_NETWORKS_MIN}_{N_LOCAL_NETWORKS_MAX}_{N_SAMPLES}"
+DIRECTORY_PATH.mkdir(exist_ok=True)
 
-# create a directory to save the pkl files
-DIRECTORY_PKL = DIRECTORY_PATH + "/pkl_cbn"
-os.makedirs(DIRECTORY_PKL, exist_ok=True)
+# create a directory to save the JSON files
+DIRECTORY_JSON = DIRECTORY_PATH / "json_data"
+DIRECTORY_JSON.mkdir(exist_ok=True)
 
-# generate the experiment data file in csv
-file_path = DIRECTORY_PATH + "/data.csv"
+# generate the experiment metrics file in csv
+metrics_path = DIRECTORY_PATH / "metrics.csv"
 
-# Erase the file if exists
-if os.path.exists(file_path):
-    os.remove(file_path)
-    print("Existing file deleted:", file_path)
+# Write header if it's a new file
+if not metrics_path.exists():
+    with metrics_path.open("w") as f:
+        f.write("i_sample,n_local_networks,n_var_network,v_topology,n_output_variables,n_clauses_function,"
+                "n_local_attractors,n_pair_attractors,n_attractor_fields,"
+                "n_time_find_attractors,n_time_find_pairs,n_time_find_fields\n")
 
 # Begin the process
-for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000
-
+for i_sample in range(1, N_SAMPLES + 1):
     # generate the aleatory local network template
     o_path_circle_template = PathCircleTemplate.generate_path_circle_template(
         n_var_network=N_VAR_NETWORK, n_input_variables=N_INPUT_VARIABLES
     )
 
-    for n_local_networks in range(
-        N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1
-    ):  # 3-9
-        l_data_sample = []
-        print("Experiment", i_sample, "of", N_SAMPLES, " TOPOLOGY:", V_TOPOLOGY)
+    for n_local_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):
+        print(f"Experiment {i_sample} of {N_SAMPLES} | Networks: {n_local_networks} | TOPOLOGY: {V_TOPOLOGY}")
 
         o_cbn = o_path_circle_template.generate_cbn_from_template(
             v_topology=V_TOPOLOGY, n_local_networks=n_local_networks
         )
 
-        # find attractors
+        # 1. find attractors (using brute force for scientific parity with C++)
         v_begin_find_attractors = time.time()
-        o_cbn.find_local_attractors_sequential()
+        o_cbn.find_local_attractors_sequential(use_brute_force=True)
         v_end_find_attractors = time.time()
         n_time_find_attractors = v_end_find_attractors - v_begin_find_attractors
 
-        # find the compatible pairs
+        # 2. find the compatible pairs
         v_begin_find_pairs = time.time()
         o_cbn.find_compatible_pairs()
         v_end_find_pairs = time.time()
         n_time_find_pairs = v_end_find_pairs - v_begin_find_pairs
 
-        # Find attractor fields
+        # 3. Find attractor fields
         v_begin_find_fields = time.time()
         o_cbn.mount_stable_attractor_fields()
         v_end_find_fields = time.time()
         n_time_find_fields = v_end_find_fields - v_begin_find_fields
 
-        # collect indicators
-        d_collect_indicators = {
-            # initial parameters
-            "i_sample": i_sample,
-            "n_local_networks": n_local_networks,
-            "n_var_network": N_VAR_NETWORK,
-            "v_topology": V_TOPOLOGY,
-            "n_output_variables": N_OUTPUT_VARIABLES,
-            "n_clauses_function": N_CLAUSES_FUNCTION,
-            # calculate parameters
-            "n_local_attractors": o_cbn.get_n_local_attractors(),
-            "n_pair_attractors": o_cbn.get_n_pair_attractors(),
-            "n_attractor_fields": o_cbn.get_n_attractor_fields(),
-            # time parameters
-            "n_time_find_attractors": n_time_find_attractors,
-            "n_time_find_pairs": n_time_find_pairs,
-            "n_time_find_fields": n_time_find_fields,
-        }
-        l_data_sample.append(d_collect_indicators)
+        # Data extraction and storage
+        base_name = f"sample_{i_sample}_topo_{V_TOPOLOGY}_nets_{n_local_networks}"
 
-        # save the collected indicator to profiler_analysis
-        pf_res = pd.DataFrame(l_data_sample)
-        pf_res.reset_index(drop=True, inplace=True)
+        # Save structural data
+        with (DIRECTORY_JSON / f"{base_name}_topology.json").open("w") as f:
+            json.dump(o_cbn.get_topology_data(), f, indent=4)
 
-        # # if the file exist, open the 'a' mode (append), else create a new file
-        # mode = 'a' if os.path.exists(file_path) else 'w'
-        # # Add the header only if is a new file
-        # header = not os.path.exists(file_path)
-        # #  save the data in csv file
-        # pf_res.to_csv(file_path, mode=mode, header=header, index=False)
+        # Save attractor data
+        with (DIRECTORY_JSON / f"{base_name}_attractors.json").open("w") as f:
+            json.dump(o_cbn.get_attractors_data(), f, indent=4)
 
-        # if the file exists, open it in 'a' mode (append), else create a new file
-        mode = "a" if os.path.exists(file_path) else "w"
-        # Add the header only if it's a new file
-        header = False if mode == "a" else True
-        # # save the data to the CSV file
-        # pf_res.to_csv(file_path, mode=mode, header=header, index=False)
-        #
-        # print("Experiment data saved in:", file_path)
-        # save the data to the CSV file only if there is data in pf_res
-        if not pf_res.empty:
-            pf_res.to_csv(file_path, mode=mode, header=header, index=False)
-            print("Experiment data saved in:", file_path)
-        else:
-            print("No data to save in:", file_path)
+        # Save pairs data
+        with (DIRECTORY_JSON / f"{base_name}_pairs.json").open("w") as f:
+            json.dump(o_cbn.get_pairs_data(), f, indent=4)
 
-        # Open a file in binary write mode (wb)
-        pickle_path = (
-            DIRECTORY_PKL
-            + "/cbn_"
-            + str(i_sample)
-            + "_"
-            + str(V_TOPOLOGY)
-            + "_"
-            + str(n_local_networks)
-            + ".pkl"
-        )
-        with open(pickle_path, "wb") as file:
-            # Use pickle.dump to save the object to the file
-            pickle.dump(o_cbn, file)
+        # Save fields data
+        with (DIRECTORY_JSON / f"{base_name}_fields.json").open("w") as f:
+            json.dump(o_cbn.get_fields_data(), f, indent=4)
 
-        # Close the file
-        file.close()
-        print("Pickle object saved in:", pickle_path)
+        # Performance Tracking: append to metrics.csv
+        with metrics_path.open("a") as f:
+            metrics = [
+                i_sample, n_local_networks, N_VAR_NETWORK, V_TOPOLOGY, N_OUTPUT_VARIABLES, N_CLAUSES_FUNCTION,
+                o_cbn.get_n_local_attractors(), o_cbn.get_n_pair_attractors(), o_cbn.get_n_attractor_fields(),
+                n_time_find_attractors, n_time_find_pairs, n_time_find_fields
+            ]
+            f.write(",".join(map(str, metrics)) + "\n")
 
+        print(f"Data and metrics saved for {base_name}")
         CustomText.print_duplex_line()
         CustomText.print_stars()
     CustomText.print_dollars()

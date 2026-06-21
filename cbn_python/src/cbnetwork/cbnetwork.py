@@ -2378,6 +2378,104 @@ class CBN:
     def get_global_scene_attractor_fields(self):
         return self.d_global_scenes_count
 
+    def get_topology_data(self) -> dict:
+        """
+        Returns structural data of the CBN in a raw format (lists and dictionaries).
+        """
+        data = {"local_networks": [], "directed_edges": []}
+        for net in self.l_local_networks:
+            net_data = {
+                "index": net.index,
+                "internal_variables": net.internal_variables,
+                "descriptive_function_variables": [],
+            }
+            for var in net.descriptive_function_variables:
+                net_data["descriptive_function_variables"].append(
+                    {"index": var.index, "cnf": var.cnf_function}
+                )
+            data["local_networks"].append(net_data)
+
+        for edge in self.l_directed_edges:
+            edge_data = {
+                "index": edge.index,
+                "index_variable": edge.index_variable,
+                "input_local_network": edge.input_local_network,
+                "output_local_network": edge.output_local_network,
+                "output_variables": edge.l_output_variables,
+                "coupling_function": edge.coupling_function,
+                "type": edge.coupling_type,
+                "bitmask": edge.bitmask,
+            }
+            data["directed_edges"].append(edge_data)
+        return data
+
+    def get_attractors_data(self) -> list:
+        """
+        Returns a list of local attractors grouped by network and scenario.
+        """
+        attractors_data = []
+        for net in self.l_local_networks:
+            for scene in net.local_scenes:
+                # Determine local scenario as list of ints
+                if isinstance(scene.l_values, str):
+                    local_scenario = [int(c) for c in scene.l_values]
+                elif isinstance(scene.l_values, (list, tuple)):
+                    local_scenario = [int(v) for v in scene.l_values]
+                else:
+                    local_scenario = []
+
+                scene_data = {
+                    "network_id": net.index,
+                    "local_scenario": local_scenario,
+                    "attractors": [],
+                }
+                for attr in scene.l_attractors:
+                    attr_data = {
+                        "local_id": attr.l_index,
+                        "global_id": attr.g_index,
+                        "states": []
+                    }
+                    for state in attr.l_states:
+                        vals = state.l_variable_values
+                        if isinstance(vals, str):
+                            vals = [int(c) for c in vals]
+                        elif isinstance(vals, (list, tuple)):
+                            vals = [int(v) for v in vals]
+                        attr_data["states"].append(vals)
+                    scene_data["attractors"].append(attr_data)
+                attractors_data.append(scene_data)
+        return attractors_data
+
+    def get_pairs_data(self) -> list:
+        """
+        Returns the list of compatible attractor pairs.
+        """
+        pairs_data = []
+        for edge in self.l_directed_edges:
+            for val in [0, 1]:
+                pairs = edge.d_comp_pairs_attractors_by_value.get(val, [])
+                for p in pairs:
+                    pairs_data.append({
+                        "source_network": edge.output_local_network,
+                        "target_network": edge.input_local_network,
+                        "source_attractor_id": p[0],
+                        "target_attractor_id": p[1],
+                        "coupling_value": val
+                    })
+        return pairs_data
+
+    def get_fields_data(self) -> list:
+        """
+        Returns the definition of attractor fields.
+        """
+        fields_data = []
+        for field_id, attractor_indices in self.d_attractor_fields.items():
+            fields_data.append({
+                "field_id": int(field_id),
+                "attractor_indices": [int(idx) for idx in attractor_indices]
+            })
+        return fields_data
+
     def to_json(self, filepath: str) -> None:
         """
         Exports the CBN structure to a JSON file.
