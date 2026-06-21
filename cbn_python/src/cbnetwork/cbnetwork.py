@@ -717,7 +717,6 @@ class CBN:
             f"END FIND COMPATIBLE ATTRACTOR PAIRS (Total pairs: {total_pairs})"
         )
 
-
     def find_compatible_pairs_parallel_with_weights(self, num_cpus=None):
         """
         Parallelizes the generation of compatible pairs using multiprocessing,
@@ -2024,9 +2023,11 @@ class CBN:
                 ),
                 "n_input_variables": metadata.get("n_input_variables"),
                 "n_output_variables": metadata.get("n_output_variables"),
-                "v_topology": self.o_global_topology.v_topology
-                if self.o_global_topology
-                else metadata.get("v_topology"),
+                "v_topology": (
+                    self.o_global_topology.v_topology
+                    if self.o_global_topology
+                    else metadata.get("v_topology")
+                ),
                 "n_clauses_function": metadata.get("n_clauses_function"),
                 "coupling_function_type": metadata.get("coupling_function_type"),
                 "n_edges": len(self.l_directed_edges),
@@ -2084,7 +2085,7 @@ class CBN:
                     attr_data = {
                         "local_id": attr.l_index,
                         "global_id": attr.g_index,
-                        "states": []
+                        "states": [],
                     }
                     for state in attr.l_states:
                         vals = state.l_variable_values
@@ -2106,13 +2107,15 @@ class CBN:
             for val in [0, 1]:
                 pairs = edge.d_comp_pairs_attractors_by_value.get(val, [])
                 for p in pairs:
-                    pairs_data.append({
-                        "source_network": edge.output_local_network,
-                        "target_network": edge.input_local_network,
-                        "source_attractor_id": p[0],
-                        "target_attractor_id": p[1],
-                        "coupling_value": val
-                    })
+                    pairs_data.append(
+                        {
+                            "source_network": edge.output_local_network,
+                            "target_network": edge.input_local_network,
+                            "source_attractor_id": p[0],
+                            "target_attractor_id": p[1],
+                            "coupling_value": val,
+                        }
+                    )
         return pairs_data
 
     def to_json_fields(self) -> list:
@@ -2121,10 +2124,12 @@ class CBN:
         """
         fields_data = []
         for field_id, attractor_indices in self.d_attractor_fields.items():
-            fields_data.append({
-                "field_id": int(field_id),
-                "attractor_indices": [int(idx) for idx in attractor_indices]
-            })
+            fields_data.append(
+                {
+                    "field_id": int(field_id),
+                    "attractor_indices": [int(idx) for idx in attractor_indices],
+                }
+            )
         return fields_data
 
     def to_json(self, filepath: str) -> None:

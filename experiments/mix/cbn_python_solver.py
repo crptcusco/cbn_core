@@ -202,7 +202,7 @@ def main():
 
     # ... (después de cargar cbn)
     cbn = CBN.from_json(args.input)
-    
+
     # INICIALIZAR VARIABLES PARA EVITAR EL NAMEERROR
     s2_ms = 0
     s3_ms = 0
@@ -210,16 +210,16 @@ def main():
 
     # Búsqueda de atractores
     cbn.find_attractors_duvrova()
-    
+
     # Búsqueda de pares
     s2_start = time.perf_counter()
     cbn.find_compatible_pairs()
-    
+
     if cbn.get_n_pair_attractors() == 0:
         cbn = CBN.from_json(args.input)
         cbn.find_attractors_duvrova()
         cbn.find_compatible_pairs()
-        
+
     s2_ms = (time.perf_counter() - s2_start) * 1000
 
     # Paso de campos
@@ -230,7 +230,7 @@ def main():
 
     # CÁLCULO FINAL DE TIEMPO
     total_ms = (time.perf_counter() - start_time) * 1000
-    
+
     # ... (ahora sí puedes usar total_ms en output_object)
 
     # Metadata
@@ -247,18 +247,12 @@ def main():
             "nodes": len(cbn.l_local_networks),
             "v_elements": len(cbn.l_local_networks) * cbn.get_n_local_variables(),
         },
-        "performance": {
-            "total_ms": total_ms,
-            "step_2_ms": s2_ms,
-            "step_3_ms": s3_ms
-        },
+        "performance": {"total_ms": total_ms, "step_2_ms": s2_ms, "step_3_ms": s3_ms},
         "pipeline_execution": {
             "step_1_local_attractors": [],
             "step_2_compatible_pairs": [],
-            "step_3_global_fields": {
-                "attractor_fields": []
-            }
-        }
+            "step_3_global_fields": {"attractor_fields": []},
+        },
     }
 
     # Populate Step 1: Local Attractors (Unpacked)

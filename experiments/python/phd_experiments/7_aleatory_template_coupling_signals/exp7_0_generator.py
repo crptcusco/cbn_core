@@ -96,9 +96,7 @@ for i_sample in range(1, N_SAMPLES + 1):
             v_begin_find_attractors = time.time()
             o_cbn.find_attractors_duvrova()
             v_end_find_attractors = time.time()
-            n_time_find_attractors = (
-                v_end_find_attractors - v_begin_find_attractors
-            )
+            n_time_find_attractors = v_end_find_attractors - v_begin_find_attractors
             v_end_find_attractors = time.time()
             n_time_find_attractors = v_end_find_attractors - v_begin_find_attractors
 

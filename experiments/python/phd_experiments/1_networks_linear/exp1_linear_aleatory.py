@@ -41,7 +41,10 @@ OUTPUT_FOLDER = Path("outputs")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
 # create an experiment directory by parameters
-DIRECTORY_PATH = OUTPUT_FOLDER / f"{EXPERIMENT_NAME}_{N_LOCAL_NETWORKS_MIN}_{N_LOCAL_NETWORKS_MAX}_{N_SAMPLES}"
+DIRECTORY_PATH = (
+    OUTPUT_FOLDER
+    / f"{EXPERIMENT_NAME}_{N_LOCAL_NETWORKS_MIN}_{N_LOCAL_NETWORKS_MAX}_{N_SAMPLES}"
+)
 DIRECTORY_PATH.mkdir(exist_ok=True)
 
 # create a directory to save the JSON files
@@ -54,9 +57,11 @@ metrics_path = DIRECTORY_PATH / "metrics.csv"
 # Write header if it's a new file
 if not metrics_path.exists():
     with metrics_path.open("w") as f:
-        f.write("i_sample,n_local_networks,n_var_network,v_topology,n_output_variables,n_clauses_function,"
-                "n_local_attractors,n_pair_attractors,n_attractor_fields,"
-                "n_time_find_attractors,n_time_find_pairs,n_time_find_fields\n")
+        f.write(
+            "i_sample,n_local_networks,n_var_network,v_topology,n_output_variables,n_clauses_function,"
+            "n_local_attractors,n_pair_attractors,n_attractor_fields,"
+            "n_time_find_attractors,n_time_find_pairs,n_time_find_fields\n"
+        )
 
 # Begin the process
 for i_sample in range(1, N_SAMPLES + 1):
@@ -66,7 +71,9 @@ for i_sample in range(1, N_SAMPLES + 1):
     )
 
     for n_local_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):
-        print(f"Experiment {i_sample} of {N_SAMPLES} | Networks: {n_local_networks} | TOPOLOGY: {V_TOPOLOGY}")
+        print(
+            f"Experiment {i_sample} of {N_SAMPLES} | Networks: {n_local_networks} | TOPOLOGY: {V_TOPOLOGY}"
+        )
 
         o_cbn = o_path_circle_template.generate_cbn_from_template(
             v_topology=V_TOPOLOGY, n_local_networks=n_local_networks
@@ -103,7 +110,7 @@ for i_sample in range(1, N_SAMPLES + 1):
             "n_output_variables": N_OUTPUT_VARIABLES,
             "v_topology": V_TOPOLOGY,
             "n_clauses_function": N_CLAUSES_FUNCTION,
-            "coupling_function_type": "OR" # Default for PathCircleTemplate
+            "coupling_function_type": "OR",  # Default for PathCircleTemplate
         }
 
         # Save structural data (Topology)
@@ -125,9 +132,18 @@ for i_sample in range(1, N_SAMPLES + 1):
         # Performance Tracking: append to metrics.csv
         with metrics_path.open("a") as f:
             metrics = [
-                i_sample, n_local_networks, N_VAR_NETWORK, V_TOPOLOGY, N_OUTPUT_VARIABLES, N_CLAUSES_FUNCTION,
-                o_cbn.get_n_local_attractors(), o_cbn.get_n_pair_attractors(), o_cbn.get_n_attractor_fields(),
-                n_time_find_attractors, n_time_find_pairs, n_time_find_fields
+                i_sample,
+                n_local_networks,
+                N_VAR_NETWORK,
+                V_TOPOLOGY,
+                N_OUTPUT_VARIABLES,
+                N_CLAUSES_FUNCTION,
+                o_cbn.get_n_local_attractors(),
+                o_cbn.get_n_pair_attractors(),
+                o_cbn.get_n_attractor_fields(),
+                n_time_find_attractors,
+                n_time_find_pairs,
+                n_time_find_fields,
             ]
             f.write(",".join(map(str, metrics)) + "\n")
 
