@@ -1,5 +1,6 @@
 # External imports
 import logging
+import re
 
 from satispy import Variable  # Library to solve SAT problems
 from satispy.solver import Minisat  # SAT solver library
@@ -286,6 +287,53 @@ class LocalNetwork:
         return boolean_function
 
     @staticmethod
+    def evaluate_boolean_function(function, state_dict, external_dict=None):
+        """
+        Evaluate a boolean function (CNF list or string expression) given a state.
+
+        :param function: The function to evaluate (list of lists for CNF, or string).
+        :param state_dict: Dictionary of internal variable values {index: value}.
+        :param external_dict: Dictionary of external variable values {index: value}.
+        :return: 1 if satisfied, 0 otherwise.
+        """
+        if external_dict is None:
+            external_dict = {}
+
+        if isinstance(function, list):
+            # Evaluate CNF list: AND of ORs
+            for clause in function:
+                clause_satisfied = False
+                for literal in clause:
+                    var_idx = abs(literal)
+                    # Try to get value from state, then from external
+                    val = state_dict.get(var_idx, external_dict.get(var_idx, 0))
+                    if literal < 0:
+                        val = 1 - val
+                    if val == 1:
+                        clause_satisfied = True
+                        break
+                if not clause_satisfied:
+                    return 0
+            return 1
+        elif isinstance(function, str):
+            # Simplified evaluation for string expressions (mainly for testing)
+            # Replaces variable indices with their values
+            expr = function.replace("∧", " and ").replace("~", " not ")
+            all_vars = sorted(
+                list(state_dict.keys()) + list(external_dict.keys()), reverse=True
+            )
+            for v in all_vars:
+                val = state_dict.get(v, external_dict.get(v))
+                # Use regex to match only full variable indices (avoid replacing parts of numbers)
+                expr = re.sub(r"\b" + str(v) + r"\b", str(val), expr)
+            try:
+                # Use a safe evaluation if possible, but for this context eval is common in such libs
+                return 1 if eval(expr) else 0
+            except Exception:
+                return 0
+        return 0
+
+    @staticmethod
     def _execute_sat_solver(local_network, num_transitions, attractor_clauses, scene):
         """
         Helper method to generate the boolean formulation, solve it, and return the response matrix.
@@ -326,59 +374,68 @@ class LocalNetwork:
         scene_index = 1
         network_attractor_count = 0
 
-        num_internal_vars = len(local_network.internal_variables)
-        internal_indices = local_network.internal_variables
+        # Ensure total_variables is set for consistent state representation
+        # It MUST be sorted to ensure scientific parity with C++ and Duvrova
+        all_vars = set(local_network.internal_variables)
+        for var in local_network.external_variables:
+            all_vars.add(var)
+        for var_model in local_network.descriptive_function_variables:
+            all_vars.add(var_model.index)
+        local_network.total_variables = sorted(list(all_vars))
+        local_network.total_variables_count = len(local_network.total_variables)
+
+        total_vars = local_network.total_variables
+        external_vars = local_network.external_variables
+        evolving_vars = [v for v in total_vars if v not in external_vars]
+        num_evolving = len(evolving_vars)
 
         for scene_str in scenes_to_process:
-            external_values = {}
+            # Fix constant values for external variables from the current local scenario
+            fixed_values = {}
             if scene_str:
                 for i, val in enumerate(scene_str):
-                    if i < len(local_network.external_variables):
-                        external_values[local_network.external_variables[i]] = int(val)
+                    if i < len(external_vars):
+                        fixed_values[external_vars[i]] = int(val)
 
             state_map = {}
-            # Build CNF logic in a way that's easy to evaluate
-            # We already have descriptive_function_variables
 
-            for i in range(1 << num_internal_vars):
-                current_state_dict = {}
-                current_state_vals = []
-                for bit in range(num_internal_vars):
+            # Iterate over the search space (2^n combinations of evolving variables)
+            for i in range(1 << num_evolving):
+                current_state_dict = fixed_values.copy()
+                for bit in range(num_evolving):
+                    # For parity with C++, we need to ensure that the bitmask is built
+                    # such that the first evolving variable is the least significant bit.
                     val = (i >> bit) & 1
-                    current_state_dict[internal_indices[bit]] = val
-                    current_state_vals.append(val)
+                    current_state_dict[evolving_vars[bit]] = val
 
-                next_state_vals = []
-                for var_idx in internal_indices:
+                # Represent the current full state as a tuple following total_variables order
+                current_full_state = tuple(
+                    str(current_state_dict.get(v, 0)) for v in total_vars
+                )
+
+                # Compute the next state for all evolving variables using their functions
+                next_state_dict = fixed_values.copy()
+                for var_idx in evolving_vars:
                     var_model = local_network.get_internal_variable(var_idx)
                     if var_model:
-                        # Simple evaluation of CNF
-                        satisfied = True
-                        for clause in var_model.cnf_function:
-                            clause_satisfied = False
-                            for lit in clause:
-                                abs_lit = abs(lit)
-                                v_val = current_state_dict.get(
-                                    abs_lit, external_values.get(abs_lit, 0)
-                                )
-                                if lit < 0:
-                                    v_val = 1 - v_val
-                                if v_val == 1:
-                                    clause_satisfied = True
-                                    break
-                            if not clause_satisfied:
-                                satisfied = False
-                                break
-                        next_state_vals.append(1 if satisfied else 0)
+                        # Use evaluation helper
+                        next_state_dict[var_idx] = LocalNetwork.evaluate_boolean_function(
+                            var_model.cnf_function, current_state_dict, current_state_dict
+                        )
                     else:
-                        next_state_vals.append(0)
+                        # If no function is defined, it defaults to 0
+                        next_state_dict[var_idx] = 0
 
-                state_map[tuple(current_state_vals)] = tuple(next_state_vals)
+                # Represent the next full state as a tuple following total_variables order
+                next_full_state = tuple(
+                    str(next_state_dict.get(v, 0)) for v in total_vars
+                )
+                state_map[current_full_state] = next_full_state
 
             visited = set()
             scene_attractors = []
 
-            # Sort keys to match C++ std::map iteration order for parity
+            # Sort keys to match C++ std::map iteration order for scientific parity
             for start_node in sorted(state_map.keys()):
                 if start_node in visited:
                     continue
@@ -394,13 +451,20 @@ class LocalNetwork:
                     curr = state_map[curr]
 
                     if curr in path_set:
-                        # Attractor found
+                        # Attractor cycle found
                         idx = path.index(curr)
-                        attractor_states_raw = path[idx:]
-                        l_states = [
-                            LocalState("".join(map(str, s)))
-                            for s in attractor_states_raw
-                        ]
+                        attractor_states_raw = list(path[idx:])
+                        # For scientific parity, we need to ensure the cycle starts from the
+                        # lexicographically smallest state in the cycle.
+                        if len(attractor_states_raw) > 1:
+                            rotations = [
+                                attractor_states_raw[i:] + attractor_states_raw[:i]
+                                for i in range(len(attractor_states_raw))
+                            ]
+                            attractor_states_raw = min(rotations)
+
+                        # Create LocalState objects with the full state (list of '0'/'1' values)
+                        l_states = [LocalState(list(s)) for s in attractor_states_raw]
 
                         attractor = LocalAttractor(
                             g_index=None,
