@@ -17,7 +17,7 @@ DEFINITIVE REFACTOR: Established master JSON contract with self-describing topol
 """
 
 # experiment parameters
-N_SAMPLES = 10000
+N_SAMPLES = 10
 N_LOCAL_NETWORKS_MIN = 3
 N_LOCAL_NETWORKS_MAX = 11
 N_VAR_NETWORK = 5
@@ -74,7 +74,11 @@ for i_sample in range(1, N_SAMPLES + 1):
 
         # 1. find attractors (using brute force for scientific parity with C++)
         v_begin_find_attractors = time.time()
-        o_cbn.find_local_attractors_sequential(use_brute_force=True)
+        # 1. find attractors (using Duvrova/SAT method for scalability)
+        v_begin_find_attractors = time.time()
+        o_cbn.find_attractors_duvrova()
+        v_end_find_attractors = time.time()
+        n_time_find_attractors = v_end_find_attractors - v_begin_find_attractors
         v_end_find_attractors = time.time()
         n_time_find_attractors = v_end_find_attractors - v_begin_find_attractors
 

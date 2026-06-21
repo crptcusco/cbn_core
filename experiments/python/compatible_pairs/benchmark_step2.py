@@ -71,20 +71,6 @@ def run_benchmark_step2():
             f"{top_name:<20} | {'Parallel (4 CPUs)':<20} | {par_time:>9.3f}s | {par_pairs}"
         )
 
-        # 5. Benchmark Step 2 - Turbo
-        # Warmup
-        o_cbn.find_compatible_pairs_turbo()
-
-        start = time.time()
-        o_cbn.find_compatible_pairs_turbo()
-        turbo_time = time.time() - start
-        turbo_pairs = count_total_pairs(o_cbn)
-        print(
-            f"{top_name:<20} | {'Turbo (Numba)':<20} | {turbo_time:>9.3f}s | {turbo_pairs}"
-        )
-
-        if seq_pairs != turbo_pairs:
-            print(f"WARNING: Pair count mismatch! Seq={seq_pairs}, Turbo={turbo_pairs}")
         if par_pairs != seq_pairs:
             print(f"WARNING: Pair count mismatch! Seq={seq_pairs}, Par={par_pairs}")
 

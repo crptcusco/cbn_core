@@ -9,10 +9,6 @@ from math import ceil
 from typing import Dict, List, Optional
 
 import numpy as np
-from dask import (  # Library for parallel computing using task scheduling with Dask
-    compute,
-    delayed,
-)
 
 from .cbnetwork_utils import _convert_to_tuple as _convert_to_tuple
 from .cbnetwork_utils import cartesian_product_mod as _cartesian_product_mod
@@ -329,36 +325,31 @@ class CBN:
             [base_pair], candidate_pairs, d_local_attractors
         )
 
-    def find_local_attractors_sequential(
-        self, num_cpus: int = 2, use_brute_force: bool = False
-    ):
-        """
-        Finds local attractors sequentially and updates the list of local attractors in the object.
-        This method calculates the local attractors for each local network, updates the coupling signals,
-        assigns global indices to each attractor, and generates the attractor dictionary.
-        """
-        if num_cpus:
-            os.environ["OMP_NUM_THREADS"] = str(num_cpus)
-            os.environ["MKL_NUM_THREADS"] = str(num_cpus)
-        CustomText.make_title("FIND LOCAL ATTRACTORS")
+    def find_attractors_brute_force(self):
+        """Ejecuta búsqueda exhaustiva de atractores locales (Ground Truth)."""
+        CustomText.make_title("FIND LOCAL ATTRACTORS - BRUTE FORCE")
         for o_local_network in self.l_local_networks:
-            # Generate the local network scenes
             local_scenes = CBN._generate_local_scenes(o_local_network)
-            # Calculate the local attractors for the local network
-            if use_brute_force:
-                o_local_network = LocalNetwork.find_local_attractors_brute_force(
-                    o_local_network, local_scenes=local_scenes
-                )
-            else:
-                o_local_network = LocalNetwork.find_local_attractors(
-                    o_local_network, local_scenes=local_scenes
-                )
-        # Update the coupling signals to be analyzed
+            LocalNetwork.find_local_attractors_brute_force(
+                o_local_network, local_scenes=local_scenes
+            )
+        self._post_process_attractors()
+
+    def find_attractors_duvrova(self):
+        """Ejecuta búsqueda de atractores locales mediante SAT Solver."""
+        CustomText.make_title("FIND LOCAL ATTRACTORS - DUVROVA (SAT)")
+        for o_local_network in self.l_local_networks:
+            local_scenes = CBN._generate_local_scenes(o_local_network)
+            LocalNetwork.find_local_attractors(
+                o_local_network, local_scenes=local_scenes
+            )
+        self._post_process_attractors()
+
+    def _post_process_attractors(self):
+        """Ensambla las señales de acoplamiento y genera diccionarios globales."""
         for o_local_network in self.l_local_networks:
             self.process_kind_signal(o_local_network)
-        # Assign global indices to each attractor
         self._assign_global_indices_to_attractors()
-        # Generate the attractor dictionary
         self.generate_attractor_dictionary()
         logger = logging.getLogger(__name__)
         logger.info("Number of local attractors: %d", self._count_total_attractors())
@@ -726,141 +717,6 @@ class CBN:
             f"END FIND COMPATIBLE ATTRACTOR PAIRS (Total pairs: {total_pairs})"
         )
 
-    def find_compatible_pairs_turbo(self) -> None:
-        """
-        Numba-accelerated version of Step 2: Compatible Attractor Pairs.
-        """
-        from cbnetwork.acceleration import (
-            HAS_NUMBA,
-            evaluate_attractors_signal_kernel,
-            find_compatible_pairs_kernel,
-        )
-
-        if not HAS_NUMBA:
-            return self.find_compatible_pairs()
-        CustomText.make_title("FIND COMPATIBLE ATTRACTOR PAIRS (TURBO)")
-        # 1. Numerical attractor database
-        # Mapping: network_index -> {
-        #   states: NP array,
-        #   offsets: NP array,
-        #   lengths: NP array,
-        #   objs: list of LocalAttractor
-        # }
-        db = {}
-        for net in self.l_local_networks:
-            all_states = []
-            offsets = []
-            lengths = []
-            objs = []
-            curr_off = 0
-            for scene in net.local_scenes:
-                for attr in scene.l_attractors:
-                    for state_obj in attr.l_states:
-                        # Pack state as integer
-                        state_int = 0
-                        for bit_idx, val in enumerate(state_obj.l_variable_values):
-                            if val:
-                                state_int |= 1 << bit_idx
-                        all_states.append(state_int)
-                    offsets.append(curr_off)
-                    lengths.append(len(attr.l_states))
-                    objs.append(attr)
-                    curr_off += len(attr.l_states)
-            if all_states:
-                db[net.index] = {
-                    "states": np.array(
-                        all_states, dtype=np.int64
-                    ),  # 1D array of packed ints
-                    "offsets": np.array(offsets, dtype=np.int64),
-                    "lengths": np.array(lengths, dtype=np.int64),
-                    "objs": objs,
-                }
-        # 2. Process Kind Signal (Numerical)
-        for net in self.l_local_networks:
-            if net.index not in db:
-                continue
-            net_db = db[net.index]
-            l_directed_edges = self.get_output_edges_by_network_index(net.index)
-            for edge in l_directed_edges:
-                edge.d_out_value_to_attractor[0] = []
-                edge.d_out_value_to_attractor[1] = []
-                # Prepare truth table
-                n_bits = len(edge.l_output_variables)
-                tt_arr = np.zeros(1 << n_bits, dtype=np.int8)
-                for bit_str, val in edge.true_table.items():
-                    idx = int(bit_str, 2)
-                    tt_arr[idx] = val
-                # Bit positions of output variables in the state integer
-                bit_positions = np.array(
-                    [net.total_variables.index(v) for v in edge.l_output_variables],
-                    dtype=np.int64,
-                )
-                # Call Kernel
-                attr_values = evaluate_attractors_signal_kernel(
-                    net_db["states"],
-                    net_db["offsets"],
-                    net_db["lengths"],
-                    bit_positions,
-                    tt_arr,
-                )
-                # Distribute results
-                stable_values = []
-                for i, val in enumerate(attr_values):
-                    attr_obj = net_db["objs"][i]
-                    if val == 0:
-                        edge.d_out_value_to_attractor[0].append(attr_obj)
-                        stable_values.append(0)
-                    elif val == 1:
-                        edge.d_out_value_to_attractor[1].append(attr_obj)
-                        stable_values.append(1)
-                    else:
-                        stable_values.append(-2)  # placeholder
-                # Update kind_signal
-                unique_vals = set(stable_values)
-                if -2 in unique_vals:
-                    edge.kind_signal = 4
-                elif len(unique_vals) == 1:
-                    edge.kind_signal = 1
-                else:
-                    edge.kind_signal = 3
-        # 3. Find Compatible Pairs (Numerical)
-        # Pre-collect destination attractors mapping: variable_index -> value -> [g_indices]
-        dest_map = {}
-        for net in self.l_local_networks:
-            for scene in net.local_scenes:
-                if scene.l_values is None:
-                    continue
-                for i, idx_var in enumerate(scene.l_index_signals):
-                    val = int(scene.l_values[i])
-                    if idx_var not in dest_map:
-                        dest_map[idx_var] = {0: [], 1: []}
-                    dest_map[idx_var][val].extend(
-                        [a.g_index for a in scene.l_attractors]
-                    )
-        total_pairs = 0
-        for edge in self.l_directed_edges:
-            idx_var = edge.index_variable
-            if idx_var not in dest_map:
-                continue
-            dest_info = dest_map[idx_var]
-            for val in [0, 1]:
-                src_indices = np.array(
-                    [a.g_index for a in edge.d_out_value_to_attractor[val]],
-                    dtype=np.int32,
-                )
-                dst_indices = np.array(dest_info[val], dtype=np.int32)
-                if len(src_indices) > 0 and len(dst_indices) > 0:
-                    pairs_arr = find_compatible_pairs_kernel(src_indices, dst_indices)
-                    # Convert back to list of tuples for compatibility
-                    edge.d_comp_pairs_attractors_by_value[val] = [
-                        tuple(p) for p in pairs_arr
-                    ]
-                    total_pairs += len(pairs_arr)
-                else:
-                    edge.d_comp_pairs_attractors_by_value[val] = []
-        logging.getLogger(__name__).info(
-            "END FIND ATTRACTOR PAIRS (TURBO) (Total pairs: %d)", total_pairs
-        )
 
     def find_compatible_pairs_parallel_with_weights(self, num_cpus=None):
         """
@@ -1430,229 +1286,6 @@ class CBN:
         CustomText.make_sub_sub_title(
             f"END MOUNT STABLE ATTRACTOR FIELDS (Total:{len(l_base_pairs)})"
         )
-
-    # DASK FUNCTIONS
-    def dask_find_local_attractors(self):
-        """
-        Parallelizes the process of finding local attractors using Dask.
-        This function divides the calculation of local attractors into parallel subtasks and then combines the results.
-        """
-        CustomText.make_title("FIND LOCAL ATTRACTORS")
-
-        # Step 1: Create parallel tasks to find local attractors
-        def process_local_network(o_local_network):
-            """
-            Processes a local network: generates local scenes, finds attractors, and processes signals.
-            """
-            # Generate local scenes
-            local_scenes = CBN._generate_local_scenes(o_local_network)
-            # Find local attractors
-            updated_network = LocalNetwork.find_local_attractors(
-                o_local_network, local_scenes=local_scenes
-            )
-            return updated_network
-
-        # Create a list of tasks using dask.delayed
-        delayed_tasks = [
-            delayed(process_local_network)(o_local_network)
-            for o_local_network in self.l_local_networks
-        ]
-        # Execute all tasks in parallel
-        updated_networks = compute(*delayed_tasks)
-        # Update local networks with the results
-        self.l_local_networks = list(
-            updated_networks
-        )  # Convert tuple to list to maintain original format
-        # Process coupling signals
-        for o_local_network in self.l_local_networks:
-            self.process_kind_signal(o_local_network)
-        # Step 2: Assign global indices to each attractor
-        self._assign_global_indices_to_attractors()
-        # Step 3: Generate the attractor dictionary
-        self.generate_attractor_dictionary()
-        CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS")
-
-    def dask_find_local_attractors_weighted_balanced(self, num_workers):
-        """
-        Parallelizes the process of finding local attractors using Dask,
-        allocating tasks according to a weight defined as:
-             weight = (number of variables) * 2^(number of coupling signals)
-        Then, tasks are grouped into 'num_workers' buckets so that the total weight
-        of each bucket is as balanced as possible. Finally, all tasks are scheduled
-        simultaneously to run concurrently, and the CBN structure is updated.
-        """
-        CustomText.make_title("FIND LOCAL ATTRACTORS WEIGHTED BALANCED")
-
-        # Function to be executed for each local network
-        def process_local_network(o_local_network):
-            # Generates local scenes using the static CBN method
-            local_scenes = CBN._generate_local_scenes(o_local_network)
-            # Finds local attractors for the network (assumes this method internally updates the object)
-            updated_network = LocalNetwork.find_local_attractors(
-                o_local_network, local_scenes=local_scenes
-            )
-            return updated_network
-
-        # Create a list of tasks along with their weight
-        tasks_with_weight = []
-        for o_local_network in self.l_local_networks:
-            # Assumes each local network has:
-            #  - total_variables: list of variables (internal/external/total)
-            #  - input_signals: list of coupling signals (or similar attribute)
-            num_vars = (
-                len(o_local_network.total_variables)
-                if hasattr(o_local_network, "total_variables")
-                else 0
-            )
-            num_coupling = (
-                len(o_local_network.input_signals)
-                if hasattr(o_local_network, "input_signals")
-                else 0
-            )
-            weight = num_vars * (2**num_coupling)
-            delayed_task = delayed(process_local_network)(o_local_network)
-            tasks_with_weight.append((weight, delayed_task))
-        # Sort tasks by weight in descending order
-        tasks_with_weight.sort(key=lambda x: x[0], reverse=True)
-        # Create buckets (groups) for each worker to balance the load
-        buckets = [{"total": 0, "tasks": []} for _ in range(num_workers)]
-        for weight, task in tasks_with_weight:
-            # Assign the task to the bucket with the lowest accumulated weight
-            bucket = min(buckets, key=lambda b: b["total"])
-            bucket["tasks"].append(task)
-            bucket["total"] += weight
-        # For debugging, print the accumulated weights of each bucket
-        for i, bucket in enumerate(buckets):
-            logger.info(
-                "Bucket %d total weight: %d with %d tasks",
-                i,
-                bucket["total"],
-                len(bucket["tasks"]),
-            )
-        # Instead of computing each bucket sequentially, combine all tasks
-        all_tasks = []
-        for bucket in buckets:
-            all_tasks.extend(bucket["tasks"])
-        # Execute all tasks simultaneously
-        results = compute(*all_tasks)
-        # Update the list of local networks with the combined results
-        self.l_local_networks = list(results)
-        # Process coupling signals for each local network (additional step in the flow)
-        for o_local_network in self.l_local_networks:
-            self.process_kind_signal(o_local_network)
-        # Step 2: Assign global indices to each attractor
-        self._assign_global_indices_to_attractors()
-        # Step 3: Generate the attractor dictionary
-        self.generate_attractor_dictionary()
-        CustomText.make_sub_sub_title("END FIND LOCAL ATTRACTORS WEIGHTED BALANCED")
-
-    def dask_find_compatible_pairs(self) -> None:
-        """
-        Parallelizes the generation of attractor pairs using output signals.
-        Uses Dask to calculate compatible pairs and ensures that the results
-        are correctly integrated into the original objects.
-        """
-        CustomText.make_title("FIND COMPATIBLE ATTRACTOR PAIRS")
-
-        # Helper function to find attractor pairs
-        def find_attractor_pairs(
-            signal_value, o_output_signal_index_variable, l_attractors_input
-        ):
-            """
-            Finds attractor pairs based on the input signal value.
-            Args:
-                signal_value (int): The signal value (0 or 1).
-                o_output_signal_index_variable: Variable index of the output signal object.
-                l_attractors_input (list): List of attractor indices for the input signal.
-            Returns:
-                list: List of attractor pairs.
-            """
-            l_attractors_output = [
-                o_attractor.g_index
-                for o_attractor in self.get_attractors_by_input_signal_value(
-                    o_output_signal_index_variable, signal_value
-                )
-            ]
-            return list(itertools.product(l_attractors_input, l_attractors_output))
-
-        # Helper function to process an output signal
-        def process_output_signal(
-            signal_index, l_attractors_input_0, l_attractors_input_1, index_variable
-        ):
-            """
-            Processes an output signal and finds compatible pairs.
-            Args:
-                signal_index: Index of the output signal.
-                l_attractors_input_0: List of attractors for value 0.
-                l_attractors_input_1: List of attractors for value 1.
-                index_variable: Index variable of the signal.
-            Returns:
-                dict: Dictionary with attractor pairs.
-            """
-            d_comp_pairs_attractors_by_value = {
-                0: find_attractor_pairs(0, index_variable, l_attractors_input_0),
-                1: find_attractor_pairs(1, index_variable, l_attractors_input_1),
-            }
-            # Returns the signal index and the generated dictionary
-            n_pairs = len(d_comp_pairs_attractors_by_value[0]) + len(
-                d_comp_pairs_attractors_by_value[1]
-            )
-            return signal_index, d_comp_pairs_attractors_by_value, n_pairs
-
-        # Create a list of parallel tasks
-        delayed_tasks = []
-        signal_map = {}
-        for o_local_network in self.l_local_networks:
-            l_output_edges = self.get_output_edges_by_network_index(
-                o_local_network.index
-            )
-            for o_output_signal in l_output_edges:
-                signal_index = o_output_signal.index
-                signal_map[signal_index] = (
-                    o_output_signal  # Mapping to access original objects
-                )
-                l_attractors_input_0 = [
-                    attr.g_index for attr in o_output_signal.d_out_value_to_attractor[0]
-                ]
-                l_attractors_input_1 = [
-                    attr.g_index for attr in o_output_signal.d_out_value_to_attractor[1]
-                ]
-                delayed_tasks.append(
-                    delayed(process_output_signal)(
-                        signal_index,
-                        l_attractors_input_0,
-                        l_attractors_input_1,
-                        o_output_signal.index_variable,
-                    )
-                )
-        # Before computing tasks
-        logger.info("Tasks created: %d", len(delayed_tasks))
-        for task in delayed_tasks[:5]:  # Show only the first 5
-            logger.debug("%s", task)
-        # Execute tasks in parallel
-        results = compute(*delayed_tasks)
-        # After executing compute
-        logger.info("Results obtained: %d", len(results))
-        for result in results[:5]:
-            logger.debug("%s", result)
-        for idx, result in enumerate(
-            results[:5]
-        ):  # Show only the first 5 to avoid too much information
-            logger.debug("Result %d: %s", idx, result)
-        # Update original objects with results
-        n_pairs = 0
-        for signal_index, d_comp_pairs_attractors_by_value, n_signal_pairs in results:
-            if signal_index not in signal_map:
-                logger.error("Signal index %s not found in signal_map", signal_index)
-                continue  # Skip this result if there is a problem
-            o_output_signal = signal_map[signal_index]
-            o_output_signal.d_comp_pairs_attractors_by_value = (
-                d_comp_pairs_attractors_by_value
-            )
-            n_pairs += n_signal_pairs
-        # Show the final result
-        # print(f"Number of attractor pairs: {n_pairs}")
-        CustomText.make_sub_sub_title("END FIND ATTRACTOR PAIRS")
 
     # SHOW FUNCTIONS
     def show_directed_edges(self) -> None:

@@ -102,7 +102,11 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000 , 1, 2
 
         # Find attractors
         v_begin_find_attractors = time.time()
-        o_cbn.find_local_attractors_sequential()
+        # 1. find attractors (using Duvrova/SAT method for scalability)
+        v_begin_find_attractors = time.time()
+        o_cbn.find_attractors_duvrova()
+        v_end_find_attractors = time.time()
+        n_time_find_attractors = v_end_find_attractors - v_begin_find_attractors
         v_end_find_attractors = time.time()
         n_time_find_attractors = v_end_find_attractors - v_begin_find_attractors
 

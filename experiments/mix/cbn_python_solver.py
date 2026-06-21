@@ -24,7 +24,8 @@ def run_audit(input_path: str):
 
     # 1. Attractor Finding Methods (Ya sin fuerza bruta)
     attractor_methods = [
-        "find_local_attractors_sequential",
+        "find_attractors_duvrova",
+        "find_attractors_brute_force",
         "find_local_attractors_parallel",
         "find_local_attractors_parallel_with_weights",
     ]
@@ -33,7 +34,6 @@ def run_audit(input_path: str):
     pairs_methods = [
         "find_compatible_pairs",
         "find_compatible_pairs_parallel",
-        "find_compatible_pairs_turbo",
         "find_compatible_pairs_parallel_with_weights",
     ]
 
@@ -107,7 +107,7 @@ def run_audit(input_path: str):
 
     # For Pairs and Fields, use a base CBN that worked
     base_cbn = CBN.from_json(input_path)
-    base_cbn.find_local_attractors_sequential(use_brute_force=True)
+    base_cbn.find_attractors_brute_force()
 
     for m in pairs_methods:
         for edge in base_cbn.l_directed_edges:
@@ -209,7 +209,7 @@ def main():
     start_time = time.perf_counter()
 
     # Búsqueda de atractores
-    cbn.find_local_attractors_sequential(use_brute_force=True)
+    cbn.find_attractors_duvrova()
     
     # Búsqueda de pares
     s2_start = time.perf_counter()
@@ -217,7 +217,7 @@ def main():
     
     if cbn.get_n_pair_attractors() == 0:
         cbn = CBN.from_json(args.input)
-        cbn.find_local_attractors_sequential(use_brute_force=True)
+        cbn.find_attractors_duvrova()
         cbn.find_compatible_pairs()
         
     s2_ms = (time.perf_counter() - s2_start) * 1000

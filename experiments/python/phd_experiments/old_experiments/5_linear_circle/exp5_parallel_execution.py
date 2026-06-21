@@ -51,7 +51,8 @@ def process_sample(i_sample, n_local_networks, topology, n_var_network):
     )
 
     v_begin_find_attractors = time.time()
-    o_cbn.find_local_attractors_sequential()
+    # find attractors (using Duvrova/SAT method for scalability)
+    o_cbn.find_attractors_duvrova()
     v_end_find_attractors = time.time()
     n_time_find_attractors = v_end_find_attractors - v_begin_find_attractors
 

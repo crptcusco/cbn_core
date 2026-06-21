@@ -7,7 +7,8 @@
 - **Input:** Redes locales con sus funciones booleanas
 - **Output:** `LocalAttractor` objects almacenados en `LocalScene.l_attractors`
 - **Métodos disponibles:**
-  - `find_local_attractors_sequential()` - SAT solver secuencial
+  - `find_attractors_duvrova()` - SAT solver secuencial (método por defecto)
+  - `find_attractors_brute_force()` - Búsqueda exhaustiva (Scientific Parity)
   - `find_local_attractors_parallel()` - SAT solver paralelo
 
 ### Paso 2: Find Compatible Pairs

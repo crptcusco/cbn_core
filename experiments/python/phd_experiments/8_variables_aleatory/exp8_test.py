@@ -47,7 +47,8 @@ for n_vars_network in range(N_VARIABLE_NET_MIN, N_VARIABLE_NET_MAX):
     o_cbn.show_description()
     # Find attractors
     v_begin_find_attractors = time.time()
-    o_cbn.find_local_attractors_sequential()
+    # find attractors (using Duvrova/SAT method for scalability)
+    o_cbn.find_attractors_duvrova()
     v_end_find_attractors = time.time()
     n_time_find_attractors = v_end_find_attractors - v_begin_find_attractors
 

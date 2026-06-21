@@ -15,76 +15,6 @@ except ImportError:
 if HAS_NUMBA:
 
     @njit
-    def evaluate_attractors_signal_kernel(
-        attractor_state_ints,  # 1D array: packed integer states (all attractors flattened)
-        attractor_offsets,  # 1D array: start index of each attractor
-        attractor_lengths,  # 1D array: number of states in each attractor
-        output_var_positions,  # 1D array: bit positions of output variables
-        truth_table_array,  # 1D array: truth table indexed by extracted bits
-    ):
-        """
-        Evaluates a signal for a list of attractors.
-        Returns:
-            1D array: The signal value for each attractor (-2 if not stable).
-        """
-        n_attrs = len(attractor_offsets)
-        results = np.empty(n_attrs, dtype=np.int8)
-
-        for i in range(n_attrs):
-            start = attractor_offsets[i]
-            length = attractor_lengths[i]
-
-            # Check stability
-            first_val = -1
-            is_stable = True
-
-            for s in range(length):
-                state_int = attractor_state_ints[start + s]
-                # Extract output variable bits
-                packed_idx = 0
-                for j in range(len(output_var_positions)):
-                    bit_pos = output_var_positions[j]
-                    if (state_int >> bit_pos) & 1:
-                        packed_idx |= 1 << j
-
-                val = truth_table_array[packed_idx]
-                if s == 0:
-                    first_val = val
-                elif val != first_val:
-                    is_stable = False
-                    break
-
-            if is_stable:
-                results[i] = first_val
-            else:
-                results[i] = -2  # Unstable
-
-        return results
-
-    @njit(parallel=True)
-    def find_compatible_pairs_kernel(
-        source_attr_indices,  # 1D array: global indices of source attractors that produced value V
-        dest_attr_indices,  # 1D array: global indices of destination attractors that expected value V
-    ):
-        """
-        Generates Cartesian product pairs numerically.
-        """
-        n_src = len(source_attr_indices)
-        n_dst = len(dest_attr_indices)
-        n_pairs = n_src * n_dst
-
-        pairs = np.empty((n_pairs, 2), dtype=np.int32)
-
-        for i in prange(n_src):
-            src_idx = source_attr_indices[i]
-            base = i * n_dst
-            for j in range(n_dst):
-                pairs[base + j, 0] = src_idx
-                pairs[base + j, 1] = dest_attr_indices[j]
-
-        return pairs
-
-    @njit
     def evaluate_field_pair_kernel(
         base_field_attractors,  # 1D array: attractor indices in current field
         base_field_networks,  # 1D array: network indices for each attractor in field
@@ -189,12 +119,6 @@ if HAS_NUMBA:
         return compatible
 
 else:
-
-    def evaluate_attractors_signal_kernel(*args):
-        raise ImportError("Numba is required for Turbo acceleration.")
-
-    def find_compatible_pairs_kernel(*args):
-        raise ImportError("Numba is required for Turbo acceleration.")
 
     def evaluate_field_pair_kernel(*args):
         raise ImportError("Numba is required for Turbo acceleration.")

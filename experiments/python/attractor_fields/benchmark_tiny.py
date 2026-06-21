@@ -23,7 +23,8 @@ def run_tiny_benchmark():
     )
 
     # STEP 1 + 2
-    o_cbn.find_local_attractors_sequential()
+    # find attractors (using Duvrova/SAT method for scalability)
+    o_cbn.find_attractors_duvrova()
     o_cbn.find_compatible_pairs()
 
     # STEP 3 - Sequential
