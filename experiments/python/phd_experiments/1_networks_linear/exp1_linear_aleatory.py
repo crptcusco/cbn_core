@@ -12,8 +12,8 @@ from cbnetwork.utils.customtext import CustomText
 
 """
 Experiment 1 - Test the path and 3_ring_aleatory structures 
-using aleatory generated template for the local network 
-Refactored for JSON data contract and performance tracking.
+using aleatory generated template for the local network.
+Refactored for JSON data contract (to_json_...) and performance tracking.
 """
 
 # experiment parameters
@@ -90,24 +90,24 @@ for i_sample in range(1, N_SAMPLES + 1):
         v_end_find_fields = time.time()
         n_time_find_fields = v_end_find_fields - v_begin_find_fields
 
-        # Data extraction and storage
+        # Data extraction and storage with descriptive naming to avoid collisions
         base_name = f"sample_{i_sample}_topo_{V_TOPOLOGY}_nets_{n_local_networks}"
 
         # Save structural data
         with (DIRECTORY_JSON / f"{base_name}_topology.json").open("w") as f:
-            json.dump(o_cbn.get_topology_data(), f, indent=4)
+            json.dump(o_cbn.to_json_topology(), f, indent=4)
 
         # Save attractor data
         with (DIRECTORY_JSON / f"{base_name}_attractors.json").open("w") as f:
-            json.dump(o_cbn.get_attractors_data(), f, indent=4)
+            json.dump(o_cbn.to_json_attractors(), f, indent=4)
 
         # Save pairs data
         with (DIRECTORY_JSON / f"{base_name}_pairs.json").open("w") as f:
-            json.dump(o_cbn.get_pairs_data(), f, indent=4)
+            json.dump(o_cbn.to_json_pairs(), f, indent=4)
 
         # Save fields data
         with (DIRECTORY_JSON / f"{base_name}_fields.json").open("w") as f:
-            json.dump(o_cbn.get_fields_data(), f, indent=4)
+            json.dump(o_cbn.to_json_fields(), f, indent=4)
 
         # Performance Tracking: append to metrics.csv
         with metrics_path.open("a") as f:
@@ -118,7 +118,7 @@ for i_sample in range(1, N_SAMPLES + 1):
             ]
             f.write(",".join(map(str, metrics)) + "\n")
 
-        print(f"Data and metrics saved for {base_name}")
+        print(f"Data and metrics saved for sample {i_sample} (nets: {n_local_networks})")
         CustomText.print_duplex_line()
         CustomText.print_stars()
     CustomText.print_dollars()

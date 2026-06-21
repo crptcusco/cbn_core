@@ -2378,7 +2378,7 @@ class CBN:
     def get_global_scene_attractor_fields(self):
         return self.d_global_scenes_count
 
-    def get_topology_data(self) -> dict:
+    def to_json_topology(self) -> dict:
         """
         Returns structural data of the CBN in a raw format (lists and dictionaries).
         """
@@ -2409,7 +2409,7 @@ class CBN:
             data["directed_edges"].append(edge_data)
         return data
 
-    def get_attractors_data(self) -> list:
+    def to_json_attractors(self) -> list:
         """
         Returns a list of local attractors grouped by network and scenario.
         """
@@ -2446,7 +2446,7 @@ class CBN:
                 attractors_data.append(scene_data)
         return attractors_data
 
-    def get_pairs_data(self) -> list:
+    def to_json_pairs(self) -> list:
         """
         Returns the list of compatible attractor pairs.
         """
@@ -2464,7 +2464,7 @@ class CBN:
                     })
         return pairs_data
 
-    def get_fields_data(self) -> list:
+    def to_json_fields(self) -> list:
         """
         Returns the definition of attractor fields.
         """
