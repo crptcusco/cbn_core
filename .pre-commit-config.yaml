@@ -15,7 +15,7 @@ repos:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-      rev: v2.1.0
-      hooks:
-        - id: mypy
-          args: [--exclude, "experiments/python/phd_experiments/old_experiments/"]
+    rev: v2.1.0
+    hooks:
+      - id: mypy
+        args: [--exclude, "experiments/python/phd_experiments/old_experiments/"]
