@@ -1,7 +1,7 @@
 import copy
+import csv
 import sys
 import time
-import csv
 from pathlib import Path
 
 # Add project root to sys.path
@@ -33,7 +33,10 @@ EXPERIMENT_NAME = "exp0_benchmark_bf_vs_sat"
 OUTPUT_FOLDER = Path("outputs")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
-DIRECTORY_PATH = OUTPUT_FOLDER / f"{EXPERIMENT_NAME}_{N_LOCAL_NETWORKS_MIN}_{N_LOCAL_NETWORKS_MAX}_{N_SAMPLES}"
+DIRECTORY_PATH = (
+    OUTPUT_FOLDER
+    / f"{EXPERIMENT_NAME}_{N_LOCAL_NETWORKS_MIN}_{N_LOCAL_NETWORKS_MAX}_{N_SAMPLES}"
+)
 DIRECTORY_PATH.mkdir(exist_ok=True)
 metrics_path = DIRECTORY_PATH / "benchmark_metrics.csv"
 
@@ -42,11 +45,19 @@ file_exists = metrics_path.exists()
 with metrics_path.open("a", newline="") as f:
     writer = csv.writer(f)
     if not file_exists:
-        writer.writerow([
-            "i_sample", "n_local_networks", "n_var_network", "v_topology",
-            "n_attractors_bf", "n_attractors_sat", "is_match",
-            "time_brute_force", "time_duvrova"
-        ])
+        writer.writerow(
+            [
+                "i_sample",
+                "n_local_networks",
+                "n_var_network",
+                "v_topology",
+                "n_attractors_bf",
+                "n_attractors_sat",
+                "is_match",
+                "time_brute_force",
+                "time_duvrova",
+            ]
+        )
 
 for i_sample in range(1, N_SAMPLES + 1):
     o_path_circle_template = PathCircleTemplate.generate_path_circle_template(
@@ -54,7 +65,9 @@ for i_sample in range(1, N_SAMPLES + 1):
     )
 
     for n_local_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):
-        print(f"Benchmark {i_sample}/{N_SAMPLES} | Networks: {n_local_networks} | TOPOLOGY: {V_TOPOLOGY}")
+        print(
+            f"Benchmark {i_sample}/{N_SAMPLES} | Networks: {n_local_networks} | TOPOLOGY: {V_TOPOLOGY}"
+        )
 
         o_cbn_base = o_path_circle_template.generate_cbn_from_template(
             v_topology=V_TOPOLOGY, n_local_networks=n_local_networks
@@ -81,15 +94,23 @@ for i_sample in range(1, N_SAMPLES + 1):
         # ---------------------------------------------------------
         # REGISTRO Y VALIDACIÓN
         # ---------------------------------------------------------
-        is_match = (attractors_bf == attractors_sat)
+        is_match = attractors_bf == attractors_sat
 
         with metrics_path.open("a", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                i_sample, n_local_networks, N_VAR_NETWORK, V_TOPOLOGY,
-                attractors_bf, attractors_sat, is_match,
-                f"{time_bf:.6f}", f"{time_sat:.6f}"
-            ])
+            writer.writerow(
+                [
+                    i_sample,
+                    n_local_networks,
+                    N_VAR_NETWORK,
+                    V_TOPOLOGY,
+                    attractors_bf,
+                    attractors_sat,
+                    is_match,
+                    f"{time_bf:.6f}",
+                    f"{time_sat:.6f}",
+                ]
+            )
 
         print(f"  -> Fuerza Bruta: {time_bf:.4f}s ({attractors_bf} atractores)")
         print(f"  -> Duvrova (SAT): {time_sat:.4f}s ({attractors_sat} atractores)")
