@@ -40,7 +40,6 @@ def run_audit(input_path: str):
     # 3. Attractor Field Methods
     field_methods = [
         "mount_stable_attractor_fields",
-        "mount_stable_attractor_fields_turbo",
         "mount_stable_attractor_fields_parallel",
         "mount_stable_attractor_fields_parallel_chunks",
     ]
@@ -225,7 +224,7 @@ def main():
     # Paso de campos
     if len(cbn.l_directed_edges) > 0:
         s3_start = time.perf_counter()
-        cbn.mount_stable_attractor_fields_turbo()
+        cbn.mount_stable_attractor_fields()
         s3_ms = (time.perf_counter() - s3_start) * 1000
 
     # CÁLCULO FINAL DE TIEMPO

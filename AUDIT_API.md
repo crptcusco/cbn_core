@@ -21,7 +21,7 @@
 **Eliminated (Legacy/Redundant):**
 - `find_local_attractors_brute_force_turbo` (Consolidated into Sequential/Parallel)
 - `find_compatible_pairs_turbo` (Alias removed)
-- `mount_stable_attractor_fields_turbo` (Alias removed)
+- `mount_stable_attractor_fields_turbo` (Totally removed)
 - `generate_global_scenes` (Empty/Legacy removed)
 - `count_fields_by_global_scenes` (Empty/Legacy removed)
 

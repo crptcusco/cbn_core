@@ -399,7 +399,6 @@ std::shared_ptr<LocalNetwork> CBN::get_network_by_index(int index) {
   return nullptr;
 }
 
-
 void CBN::find_compatible_pairs_parallel() {
 #pragma omp parallel for
   for (int i = 0; i < (int)l_directed_edges.size(); ++i) {
@@ -433,9 +432,7 @@ void CBN::find_compatible_pairs_parallel_with_weights() {
   find_compatible_pairs_parallel();
 }
 
-void CBN::find_compatible_pairs_turbo() {
-  find_compatible_pairs_parallel();
-}
+void CBN::find_compatible_pairs_turbo() { find_compatible_pairs_parallel(); }
 
 void CBN::mount_stable_attractor_fields_parallel() {
   mount_stable_attractor_fields();
@@ -535,7 +532,6 @@ void CBN::mount_stable_attractor_fields() {
   for (size_t i = 0; i < current_fields.size(); ++i) {
     d_attractor_fields[i + 1] = current_fields[i];
   }
-
 }
 
 void CBN::mount_stable_attractor_fields_turbo() {
@@ -823,8 +819,8 @@ void CBN::audit_indices() const {
 
     for (int v : net->internal_variables) {
       if (all_internal_vars.count(v)) {
-        throw std::runtime_error("Duplicate internal variable index detected: " +
-                                 std::to_string(v));
+        throw std::runtime_error(
+            "Duplicate internal variable index detected: " + std::to_string(v));
       }
       all_internal_vars.insert(v);
     }
@@ -832,16 +828,14 @@ void CBN::audit_indices() const {
 
   for (const auto &edge : l_directed_edges) {
     if (net_indices.find(edge->output_local_network) == net_indices.end()) {
-      throw std::runtime_error("Edge " + std::to_string(edge->index) +
-                               ": Output network " +
-                               std::to_string(edge->output_local_network) +
-                               " not found.");
+      throw std::runtime_error(
+          "Edge " + std::to_string(edge->index) + ": Output network " +
+          std::to_string(edge->output_local_network) + " not found.");
     }
     if (net_indices.find(edge->input_local_network) == net_indices.end()) {
-      throw std::runtime_error("Edge " + std::to_string(edge->index) +
-                               ": Input network " +
-                               std::to_string(edge->input_local_network) +
-                               " not found.");
+      throw std::runtime_error(
+          "Edge " + std::to_string(edge->index) + ": Input network " +
+          std::to_string(edge->input_local_network) + " not found.");
     }
   }
 
@@ -934,8 +928,7 @@ std::shared_ptr<CBN> CBN::clone() const {
   }
 
   auto cloned_cbn = std::make_shared<CBN>(cloned_networks, cloned_edges);
-  cloned_cbn->o_global_topology =
-      o_global_topology;
+  cloned_cbn->o_global_topology = o_global_topology;
 
   for (auto &net : cloned_cbn->l_local_networks) {
     std::vector<std::shared_ptr<DirectedEdge>> inputs;
@@ -1058,7 +1051,6 @@ void CBN::_assign_global_indices_to_attractors() {
     }
   }
 }
-
 
 int CBN::get_n_local_variables() const {
   if (l_local_networks.empty())
