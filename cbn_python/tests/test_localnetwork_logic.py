@@ -42,6 +42,6 @@ def test_local_network_with_coupling():
     LocalNetwork.find_local_attractors_brute_force(net, local_scenes=["0", "1"])
     assert net.attractor_count == 2
     assert len(net.local_scenes) == 2
-    # In my current implementation of LocalState inside brute force, l_variable_values is a string
-    assert net.local_scenes[0].l_attractors[0].l_states[0].l_variable_values == "0"
-    assert net.local_scenes[1].l_attractors[0].l_states[0].l_variable_values == "1"
+    # In my current implementation of LocalState inside brute force, l_variable_values is a list of integers
+    assert net.local_scenes[0].l_attractors[0].l_states[0].l_variable_values == [0, 0]
+    assert net.local_scenes[1].l_attractors[0].l_states[0].l_variable_values == [1, 1]

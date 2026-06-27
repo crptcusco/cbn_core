@@ -17,7 +17,7 @@ def test_generate_sample_topology_valid_complete():
 
 def test_null_topology():
     o = NullTopology()
-    assert o.get_nodes() == []
+    assert o.get_nodes() == set()
     assert o.get_edges() == []
 
 

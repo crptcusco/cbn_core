@@ -504,17 +504,14 @@ class CBN:
         def get_true_table_index(o_state, o_output_signal):
             true_table_index = ""
             for v_output_variable in o_output_signal.l_output_variables:
-                pos = o_local_network.total_variables.index(v_output_variable)
-                value = o_state.l_variable_values[pos]
-                true_table_index += str(value)
+                try:
+                    pos = o_local_network.total_variables.index(v_output_variable)
+                    value = o_state.l_variable_values[pos]
+                    true_table_index += str(value)
+                except ValueError:
+                    # Variable not found in total_variables
+                    pass
             return true_table_index
-
-        def update_output_signals(l_signals_in_attractor, o_output_signal, o_attractor):
-            output_value = l_signals_in_attractor[0]
-            if output_value == "0":
-                o_output_signal.d_out_value_to_attractor[0].append(o_attractor)
-            elif output_value == "1":
-                o_output_signal.d_out_value_to_attractor[1].append(o_attractor)
 
         l_directed_edges = CBN.find_output_edges_by_network_index(
             o_local_network.index, self.l_directed_edges
@@ -523,35 +520,40 @@ class CBN:
             # Reset lists to avoid accumulation
             o_output_signal.d_out_value_to_attractor[0] = []
             o_output_signal.d_out_value_to_attractor[1] = []
-            l_signals_for_output = []
+            signals_for_output = set()
+
             for o_local_scene in o_local_network.local_scenes:
-                l_signals_in_local_scene = []
+                signals_in_local_scene = set()
                 for o_attractor in o_local_scene.l_attractors:
-                    l_signals_in_attractor = [
-                        o_output_signal.true_table[
-                            get_true_table_index(o_state, o_output_signal)
-                        ]
-                        for o_state in o_attractor.l_states
-                    ]
-                    if len(set(l_signals_in_attractor)) == 1:
-                        l_signals_in_local_scene.append(l_signals_in_attractor[0])
-                        update_output_signals(
-                            l_signals_in_attractor, o_output_signal, o_attractor
+                    signals_in_attractor = set()
+                    for o_state in o_attractor.l_states:
+                        idx = get_true_table_index(o_state, o_output_signal)
+                        if idx in o_output_signal.true_table:
+                            val = o_output_signal.true_table[idx]
+                            signals_in_attractor.add(val)
+
+                    if len(signals_in_attractor) == 1:
+                        val_str = list(signals_in_attractor)[0]
+                        val_int = int(val_str)
+                        signals_in_local_scene.add(val_int)
+                        o_output_signal.d_out_value_to_attractor[val_int].append(
+                            o_attractor
                         )
-                if len(set(l_signals_in_local_scene)) == 1:
-                    l_signals_for_output.append(l_signals_in_local_scene[0])
-                else:
-                    l_signals_for_output.extend(l_signals_in_local_scene)
-            signal_set_length = len(set(l_signals_for_output))
-            if signal_set_length == 1:
-                o_output_signal.kind_signal = 1
-                # print("INFO: the output signal is restricted")
-            elif signal_set_length == 2:
-                o_output_signal.kind_signal = 3
-                # print("INFO: the output signal is stable")
+                    else:
+                        # Attractor is not stable for this signal (oscillates)
+                        signals_in_local_scene.add(-1)
+
+                for s in signals_in_local_scene:
+                    signals_for_output.add(s)
+
+            if len(signals_for_output) == 1 and -1 not in signals_for_output:
+                o_output_signal.kind_signal = 1  # RESTRICTED
+            elif -1 in signals_for_output:
+                o_output_signal.kind_signal = 4  # NOT STABLE
+            elif len(signals_for_output) == 2:
+                o_output_signal.kind_signal = 3  # STABLE
             else:
-                o_output_signal.kind_signal = 4
-                # print("INFO: the scene signal is not stable. This CBN doesn't have stable Attractor Fields")
+                o_output_signal.kind_signal = 2  # NOT COMPUTE / EMPTY
 
     def _count_total_attractors(self) -> int:
         """
@@ -1081,17 +1083,9 @@ class CBN:
         # Paso 4: Generar el diccionario de campos de atractores a partir de la base final
         self.d_attractor_fields = {}
         for i, base_element in enumerate(l_base_pairs, start=1):
-            field = set()
-            try:
-                for pair in base_element:
-                    try:
-                        for item in pair:
-                            field.add(tuple(item) if isinstance(item, list) else item)
-                    except TypeError:
-                        field.add(pair)
-            except TypeError:
-                field.add(base_element)
-            self.d_attractor_fields[i] = list(field)
+            # Flatten, remove duplicates and sort
+            flat_field = list(set(CBN.flatten(base_element)))
+            self.d_attractor_fields[i] = sorted(flat_field)
         CustomText.make_sub_sub_title("END MOUNT STABLE ATTRACTOR FIELDS (PARALLEL)")
 
     @staticmethod
@@ -1187,16 +1181,9 @@ class CBN:
         # Step 4: Generate the dictionary of attractor fields from the final base
         self.d_attractor_fields = {}
         for i, base_element in enumerate(l_base_pairs, start=1):
-            # Flatten the base element to obtain a flat list of attractor indices
-            flat_field = list(CBN.flatten(base_element))
-            # Remove duplicates while preserving order
-            seen = set()
-            unique_flat_field = []
-            for item in flat_field:
-                if item not in seen:
-                    seen.add(item)
-                    unique_flat_field.append(item)
-            self.d_attractor_fields[i] = unique_flat_field
+            # Flatten, remove duplicates and sort
+            flat_field = list(set(CBN.flatten(base_element)))
+            self.d_attractor_fields[i] = sorted(flat_field)
         CustomText.make_sub_sub_title(
             f"END MOUNT STABLE ATTRACTOR FIELDS (Total:{len(l_base_pairs)})"
         )
