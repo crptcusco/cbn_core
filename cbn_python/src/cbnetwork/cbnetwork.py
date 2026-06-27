@@ -8,6 +8,8 @@ from itertools import product
 from math import ceil
 from typing import Dict, List, Optional
 
+from .coupling import AndCoupling, OrCoupling
+from .coupling_bitmask import CouplingFactory as BitmaskFactory
 import numpy as np
 
 from .cbnetwork_utils import _convert_to_tuple as _convert_to_tuple
@@ -1205,6 +1207,64 @@ class CBN:
             ),
         )
 
+    def export_to_networkx(self):
+        """
+        Exports the CBN global topology and local structure to a NetworkX DiGraph.
+        Nodes represent either internal variables or coupling signals.
+        Edges represent the dependencies within local networks and between networks.
+        """
+        import networkx as nx
+
+        G = nx.DiGraph()
+
+        # Add all internal nodes and edges within local networks
+        for net in self.l_local_networks:
+            for var_model in net.descriptive_function_variables:
+                node_id = f"N{net.index}_V{var_model.index}"
+                G.add_node(
+                    node_id,
+                    type="internal",
+                    network=net.index,
+                    var_index=var_model.index,
+                    label=f"V{var_model.index}",
+                )
+
+                # Add edges from literals in CNF
+                for clause in var_model.cnf_function:
+                    for lit in clause:
+                        source_var = abs(lit)
+                        # Check if it's an internal variable or an input signal
+                        is_input = any(
+                            e.index_variable == source_var
+                            for e in self.get_input_edges_by_network_index(net.index)
+                        )
+
+                        if is_input:
+                            source_id = f"SIG_{source_var}"
+                        else:
+                            source_id = f"N{net.index}_V{source_var}"
+
+                        G.add_edge(source_id, node_id)
+
+        # Add edges between networks (coupling signals)
+        for edge in self.l_directed_edges:
+            sig_id = f"SIG_{edge.index_variable}"
+            G.add_node(
+                sig_id,
+                type="signal",
+                network_source=edge.output_local_network,
+                network_target=edge.input_local_network,
+                var_index=edge.index_variable,
+                label=f"S{edge.index_variable}",
+            )
+
+            # Connect source variables to the signal node
+            for out_var in edge.l_output_variables:
+                source_id = f"N{edge.output_local_network}_V{out_var}"
+                G.add_edge(source_id, sig_id)
+
+        return G
+
     def show_coupled_signals_kind(self) -> None:
         CustomText.print_duplex_line()
         logger.info("SHOW THE COUPLED SIGNALS KINDS")
@@ -1467,6 +1527,7 @@ class CBN:
         n_edges: Optional[int] = None,
         coupling_strategy: Optional[CouplingStrategy] = None,
         coupling_factory=None,
+        seed: Optional[int] = None,
     ) -> "CBN":
         """Factory method to generate a complete CBN from high-level parameters.
         This is the primary entry point for creating a CBN. It automates the
@@ -1492,12 +1553,20 @@ class CBN:
             coupling_strategy: An instance of a `CouplingStrategy` subclass
                 that defines the logic for combining output signals (e.g.,
                 `OrCoupling()`, `AndCoupling()`). Defaults to `OrCoupling()`.
+            seed: Optional integer seed for deterministic generation.
         Returns:
             An initialized `CBN` object ready for analysis.
         """
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
+
         # GENERATE THE GLOBAL TOPOLOGY
         o_global_topology = GlobalTopology.generate_sample_topology(
-            v_topology=v_topology, n_nodes=n_local_networks, n_edges=n_edges
+            v_topology=v_topology,
+            n_nodes=n_local_networks,
+            n_edges=n_edges,
+            seed=seed,
         )
         # GENERATE THE LOCAL NETWORK TEMPLATE
         o_template = LocalNetworkTemplate(
@@ -1507,6 +1576,7 @@ class CBN:
             n_max_of_clauses=n_max_of_clauses,
             n_max_of_literals=n_max_of_literals,
             v_topology=v_topology,
+            seed=seed,
         )
         # GENERATE THE CBN WITH THE TOPOLOGY AND TEMPLATE
         o_cbn = CBN.generate_cbn_from_template(
@@ -1519,6 +1589,58 @@ class CBN:
             coupling_factory=coupling_factory,
         )
         return o_cbn
+
+    @staticmethod
+    def generate_from_config(config: Dict) -> "CBN":
+        """Generates a CBN from a configuration dictionary (e.g., from JSON).
+        Supported keys:
+            - n_networks (int): Number of local networks.
+            - v_topology (int): Topology ID.
+            - n_var_network (int): Variables per local network.
+            - n_input_variables (int): Input signals per network.
+            - connectivity_density (float): 0.0 to 1.0, scales number of edges.
+            - n_output_variables (int): Variables used for output signal.
+            - seed (int): Seed for deterministic generation.
+            - coupling_type (str): "OR", "AND", "MAJORITY", "RANDOM".
+        """
+        n_nets = config.get("n_networks", 3)
+        v_topo = config.get("v_topology", 4)
+        n_vars = config.get("n_var_network", 3)
+        n_input = config.get("n_input_variables", 1)
+        density = config.get("connectivity_density", 0.5)
+        n_out = config.get("n_output_variables", 1)
+        seed = config.get("seed")
+
+        # Map connectivity_density to n_edges for supported topologies
+        # For a DiGraph with N nodes, max edges is N*(N-1)
+        # But we usually limit to 2*N or similar in AleatoryFixedDigraph
+        n_edges = None
+        if v_topo == 2:  # aleatory_fixed
+            n_edges = int(density * (2 * n_nets))
+
+        # Determine coupling factory
+        coupling_type = config.get("coupling_type", "OR").upper()
+
+        def factory(k):
+            if coupling_type == "OR":
+                return BitmaskFactory.create_or_function(k)
+            elif coupling_type == "AND":
+                return BitmaskFactory.create_and_function(k)
+            elif coupling_type == "MAJORITY":
+                return BitmaskFactory.create_majority_function(k)
+            else:
+                return BitmaskFactory.create_mixed_random_function(k)
+
+        return CBN.cbn_generator(
+            v_topology=v_topo,
+            n_local_networks=n_nets,
+            n_vars_network=n_vars,
+            n_input_variables=n_input,
+            n_output_variables=n_out,
+            n_edges=n_edges,
+            coupling_factory=factory,
+            seed=seed,
+        )
 
     @staticmethod
     def find_output_edges_by_network_index(

@@ -18,6 +18,7 @@ class LocalNetworkTemplate:
         n_max_of_clauses=None,
         n_max_of_literals=None,
         v_topology=1,
+        seed=None,
     ):
         """
         Initialize a LocalNetworkTemplate object.
@@ -42,6 +43,8 @@ class LocalNetworkTemplate:
         )
 
         # Calculated Parameters
+        self.seed = seed
+        self.rng = random.Random(seed)
         self.l_output_var_indexes = []
         self.d_variable_cnf_function = {}
         self.generate_local_dynamic()
@@ -64,14 +67,14 @@ class LocalNetworkTemplate:
         )
 
         # Generate CNF function for each internal variable
-        l_input_variables = random.sample(
+        l_input_variables = self.rng.sample(
             l_internal_var_indexes, self.n_input_variables
         )
 
         for i_variable in l_internal_var_indexes:
             input_coup_sig_index = None
             if i_variable in l_input_variables:
-                input_coup_sig_index = random.choice(l_input_coupling_signal_indexes)
+                input_coup_sig_index = self.rng.choice(l_input_coupling_signal_indexes)
 
             # Generate CNF function for the variable
             self.d_variable_cnf_function[i_variable] = CNFList.generate_cnf(
@@ -79,10 +82,11 @@ class LocalNetworkTemplate:
                 input_coup_sig_index=input_coup_sig_index,
                 max_clauses=self.n_max_of_clauses,
                 max_literals=self.n_max_of_literals,
+                seed=self.seed,  # Although CNFList might need its own handling
             )
 
         # Generate output variable indexes
-        self.l_output_var_indexes = random.sample(
+        self.l_output_var_indexes = self.rng.sample(
             range(1, self.n_vars_network + 1), self.n_output_variables
         )
 
@@ -120,11 +124,12 @@ class LocalNetworkTemplate:
             if o_local_network.index == i_local_network:
                 if k is not None:
                     # Dynamic sampling based on k.
-                    # We use a fixed seed based on network index to maintain
-                    # reproducibility if needed, but since we are in a generator
-                    # that uses random, let's just use the current random state.
-                    # Note: to ensure parity with C++, we'll need to be careful.
-                    indices = random.sample(
+                    # To maintain deterministic behavior per network, we can use a seed
+                    # based on the template seed and the network index.
+                    net_rng = random.Random(
+                        (self.seed or 0) + i_local_network * 1000
+                    )
+                    indices = net_rng.sample(
                         range(len(o_local_network.internal_variables)),
                         min(k, len(o_local_network.internal_variables)),
                     )
