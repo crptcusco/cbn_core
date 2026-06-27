@@ -410,7 +410,7 @@ class LocalNetwork:
 
                 # Represent the current full state as a tuple following total_variables order
                 current_full_state = tuple(
-                    str(current_state_dict.get(v, 0)) for v in total_vars
+                    current_state_dict.get(v, 0) for v in total_vars
                 )
 
                 # Compute the next state for all evolving variables using their functions
@@ -428,7 +428,7 @@ class LocalNetwork:
 
                 # Represent the next full state as a tuple following total_variables order
                 next_full_state = tuple(
-                    str(next_state_dict.get(v, 0)) for v in total_vars
+                    next_state_dict.get(v, 0) for v in total_vars
                 )
                 state_map[current_full_state] = next_full_state
 

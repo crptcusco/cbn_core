@@ -25,6 +25,8 @@ cd cbnetwork
 pip install -r requirements.txt
 ```
 
+> **Nota sobre Dependencias Opcionales:** Si deseas utilizar el solver basado en SAT (método `find_attractors_duvrova`), es necesario tener instalado el binario `minisat` en tu sistema (ej. `sudo apt-get install minisat` en sistemas basados en Debian). Para la mayoría de los casos de uso estándar y benchmarks, el método de fuerza bruta (`find_attractors_brute_force`) es suficiente y no requiere dependencias externas adicionales.
+
 ## Guía de Inicio Rápido
 
 A continuación, se muestra un ejemplo mínimo de cómo crear y analizar una Red Booleana Acoplada simple:

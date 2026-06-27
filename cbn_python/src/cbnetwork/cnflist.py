@@ -3,7 +3,7 @@ import random
 
 class CNFList:
     @staticmethod
-    def generate_cnf(l_inter_vars, input_coup_sig_index, max_clauses=2, max_literals=3):
+    def generate_cnf(l_inter_vars, input_coup_sig_index, max_clauses=2, max_literals=3, seed=None):
         """
         Generates a robust CNF (Conjunctive Normal Form) list with random clauses.
 
@@ -15,6 +15,7 @@ class CNFList:
             input_coup_sig_index (int): Index of the input coupling signal.
             max_clauses (int): Maximum number of clauses to generate.
             max_literals (int): Maximum number of literals per clause.
+            seed (int, optional): Seed for deterministic generation.
 
         Returns:
             list: List of clauses in CNF format.
@@ -23,15 +24,16 @@ class CNFList:
             RuntimeError: If a valid CNF function cannot be generated after a
                           set number of attempts.
         """
+        rng = random.Random(seed)
         max_attempts = 100  # Safety break to prevent potential infinite loops
         for _ in range(max_attempts):
-            num_clauses = random.randint(1, max_clauses)
+            num_clauses = rng.randint(1, max_clauses)
             l_cnf = []
 
             # Generate the clause for external signals
             if input_coup_sig_index is not None:
                 var = input_coup_sig_index
-                if random.choice([True, False]):
+                if rng.choice([True, False]):
                     var = -var
                 l_cnf.append([var])
 
@@ -45,11 +47,11 @@ class CNFList:
                     break
 
                 # Use random.sample to avoid duplicate variables in a clause from the start
-                num_literals = random.randint(1, effective_max_literals)
-                clause_vars = random.sample(l_inter_vars, num_literals)
+                num_literals = rng.randint(1, effective_max_literals)
+                clause_vars = rng.sample(l_inter_vars, num_literals)
 
                 clause = [
-                    -var if random.choice([True, False]) else var for var in clause_vars
+                    -var if rng.choice([True, False]) else var for var in clause_vars
                 ]
 
                 # Remove redundant literals within the clause (e.g., [A, -A])
