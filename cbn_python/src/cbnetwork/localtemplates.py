@@ -87,11 +87,7 @@ class LocalNetworkTemplate:
 
         # Generate output variable indexes
         self.l_output_var_indexes = self.rng.sample(
-<<<<<<< HEAD
-            range(1, self.n_vars_network + 1), self.n_output_variables
-=======
             range(1, self.n_var_network + 1), self.n_output_variables
->>>>>>> fix-attractor-fields-inconsistency-4581358632143816223
         )
 
     def show(self):

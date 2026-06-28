@@ -1564,11 +1564,7 @@ class CBN:
         # GENERATE THE GLOBAL TOPOLOGY
         o_global_topology = GlobalTopology.generate_sample_topology(
             v_topology=v_topology,
-<<<<<<< HEAD
-            n_nodes=n_local_networks,
-=======
             n_nodes=n_networks,
->>>>>>> fix-attractor-fields-inconsistency-4581358632143816223
             n_edges=n_edges,
             seed=seed,
         )
@@ -1597,34 +1593,6 @@ class CBN:
     @staticmethod
     def generate_from_config(config: Dict) -> "CBN":
         """Generates a CBN from a configuration dictionary (e.g., from JSON).
-<<<<<<< HEAD
-        Supported keys:
-            - n_networks (int): Number of local networks.
-            - v_topology (int): Topology ID.
-            - n_var_network (int): Variables per local network.
-            - n_input_variables (int): Input signals per network.
-            - connectivity_density (float): 0.0 to 1.0, scales number of edges.
-            - n_output_variables (int): Variables used for output signal.
-            - seed (int): Seed for deterministic generation.
-            - coupling_type (str): "OR", "AND", "MAJORITY", "RANDOM".
-        """
-        n_nets = config.get("n_networks", 3)
-        v_topo = config.get("v_topology", 4)
-        n_vars = config.get("n_var_network", 3)
-        n_input = config.get("n_input_variables", 1)
-        density = config.get("connectivity_density", 0.5)
-        n_out = config.get("n_output_variables", 1)
-        seed = config.get("seed")
-
-        # Map connectivity_density to n_edges for supported topologies
-        # For a DiGraph with N nodes, max edges is N*(N-1)
-        # But we usually limit to 2*N or similar in AleatoryFixedDigraph
-        n_edges = None
-        if v_topo == 2:  # aleatory_fixed
-            n_edges = int(density * (2 * n_nets))
-
-        # Determine coupling factory
-=======
         The config keys are mapped directly to the cbn_generator arguments.
         """
         # Mapping density to n_edges if necessary
@@ -1634,7 +1602,6 @@ class CBN:
             config["n_edges"] = int(density * (2 * n_nets))
 
         # Handle coupling factory from string
->>>>>>> fix-attractor-fields-inconsistency-4581358632143816223
         coupling_type = config.get("coupling_type", "OR").upper()
 
         def factory(k):
@@ -1647,18 +1614,6 @@ class CBN:
             else:
                 return BitmaskFactory.create_mixed_random_function(k)
 
-<<<<<<< HEAD
-        return CBN.cbn_generator(
-            v_topology=v_topo,
-            n_local_networks=n_nets,
-            n_vars_network=n_vars,
-            n_input_variables=n_input,
-            n_output_variables=n_out,
-            n_edges=n_edges,
-            coupling_factory=factory,
-            seed=seed,
-        )
-=======
         # Extract only relevant keys for cbn_generator
         valid_args = [
             "v_topology", "n_networks", "n_var_network",
@@ -1671,7 +1626,6 @@ class CBN:
         filtered_config["coupling_factory"] = factory
 
         return CBN.cbn_generator(**filtered_config)
->>>>>>> fix-attractor-fields-inconsistency-4581358632143816223
 
     @staticmethod
     def find_output_edges_by_network_index(
