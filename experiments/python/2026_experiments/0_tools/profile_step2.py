@@ -15,8 +15,8 @@ def profile_step2():
     print(f"Generating system: {n_nets} nets, {n_vars} vars...")
     o_cbn = CBN.cbn_generator(
         v_topology=top_id,
-        n_local_networks=n_nets,
-        n_vars_network=n_vars,
+        n_networks=n_nets,
+        n_var_network=n_vars,
         n_input_variables=2,
         n_output_variables=2,
         n_max_of_clauses=3,

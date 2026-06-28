@@ -58,7 +58,7 @@ metrics_path = DIRECTORY_PATH / "metrics.csv"
 if not metrics_path.exists():
     with metrics_path.open("w") as f:
         f.write(
-            "i_sample,n_local_networks,n_var_network,v_topology,n_output_variables,n_clauses_function,"
+            "i_sample,n_networks,n_var_network,v_topology,n_output_variables,n_clauses_function,"
             "n_local_attractors,n_pair_attractors,n_attractor_fields,"
             "n_time_find_attractors,n_time_find_pairs,n_time_find_fields\n"
         )
@@ -70,13 +70,13 @@ for i_sample in range(1, N_SAMPLES + 1):
         n_var_network=N_VAR_NETWORK, n_input_variables=N_INPUT_VARIABLES
     )
 
-    for n_local_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):
+    for n_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):
         print(
-            f"Experiment {i_sample} of {N_SAMPLES} | Networks: {n_local_networks} | TOPOLOGY: {V_TOPOLOGY}"
+            f"Experiment {i_sample} of {N_SAMPLES} | Networks: {n_networks} | TOPOLOGY: {V_TOPOLOGY}"
         )
 
         o_cbn = o_path_circle_template.generate_cbn_from_template(
-            v_topology=V_TOPOLOGY, n_local_networks=n_local_networks
+            v_topology=V_TOPOLOGY, n_networks=n_networks
         )
 
         # 1. find attractors (using brute force for scientific parity with C++)
@@ -102,7 +102,7 @@ for i_sample in range(1, N_SAMPLES + 1):
         n_time_find_fields = v_end_find_fields - v_begin_find_fields
 
         # Data extraction and storage with the requested strict naming pattern
-        base_name = f"sample_{i_sample}_topo_{V_TOPOLOGY}_nets_{n_local_networks}"
+        base_name = f"sample_{i_sample}_topo_{V_TOPOLOGY}_nets_{n_networks}"
 
         # Metadata for self-describing topology
         metadata = {
@@ -133,7 +133,7 @@ for i_sample in range(1, N_SAMPLES + 1):
         with metrics_path.open("a") as f:
             metrics = [
                 i_sample,
-                n_local_networks,
+                n_networks,
                 N_VAR_NETWORK,
                 V_TOPOLOGY,
                 N_OUTPUT_VARIABLES,

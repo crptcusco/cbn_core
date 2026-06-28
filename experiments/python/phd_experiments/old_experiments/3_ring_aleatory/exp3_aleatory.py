@@ -33,14 +33,14 @@ v_begin_exp = time.time()
 
 # Begin the process
 l_data_sample = []
-for n_local_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX):
+for n_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX):
     for i_sample in range(1, N_SAMPLES + 1):
         print("Experiment", i_sample, "of", N_SAMPLES)
         # generate a Coupled Boolean Network with the parameters
         CustomText.print_duplex_line()
         CustomText.print_message(message="Generating the CBN...", show=SHOW_MESSAGES)
         o_cbn = CBN.generate_aleatory_cbn_by_topology(
-            n_local_networks=n_local_networks,
+            n_networks=n_networks,
             n_var_network=N_VAR_NETWORK,
             v_topology=V_TOPOLOGY,
             n_output_variables=N_OUTPUT_VARIABLES,
@@ -69,7 +69,7 @@ for n_local_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX):
         d_collect_indicators = {
             # initial parameters
             "i_sample": i_sample,
-            "N_LOCAL_NETWORKS": n_local_networks,
+            "N_LOCAL_NETWORKS": n_networks,
             "N_VAR_NETWORK": N_VAR_NETWORK,
             "V_TOPOLOGY": V_TOPOLOGY,
             "N_OUTPUT_VARIABLES": N_OUTPUT_VARIABLES,

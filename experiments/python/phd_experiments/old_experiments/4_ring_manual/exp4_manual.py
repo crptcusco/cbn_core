@@ -18,8 +18,8 @@ number of local networks 3
 
 # experiment parameters
 n_samples = 1
-n_local_networks_min = 3
-n_local_networks_max = 10
+n_networks_min = 3
+n_networks_max = 10
 n_var_network = 5
 n_output_variables = 2
 v_topology = 3  # cycle graph
@@ -32,14 +32,14 @@ v_begin_exp = time.time()
 
 # Begin the process
 l_data_sample = []
-for n_local_networks in range(n_local_networks_min, n_local_networks_max):
+for n_networks in range(n_networks_min, n_networks_max):
     for i_sample in range(1, n_samples + 1):
         print("Experiment", i_sample, "of", n_samples)
 
         l_local_networks = []
         l_directed_edges = []
 
-        n_local_nets = n_local_networks
+        n_local_nets = n_networks
         n_var_net = n_var_network
         n_total_var = n_local_nets * n_var_net
 
@@ -50,7 +50,7 @@ for n_local_networks in range(n_local_networks_min, n_local_networks_max):
         }
 
         # generate the edges of the 1_linear_aleatory CBN
-        l_edges = [(i, i + 1) for i in range(1, n_local_networks)]
+        l_edges = [(i, i + 1) for i in range(1, n_networks)]
 
         # generate the networks
         for i_local_net in d_network_variables.keys():
@@ -86,8 +86,8 @@ for n_local_networks in range(n_local_networks_min, n_local_networks_max):
 
         # CREATE THE LAST EDGE
         # generate the last edge between the last network and the first
-        l_edges.append((n_local_networks, 1))
-        t_edge = (n_local_networks, 1)
+        l_edges.append((n_networks, 1))
+        t_edge = (n_networks, 1)
         l_output_variables = [
             ((n_local_nets - 1) * n_var_net) + 3,
             ((n_local_nets - 1) * n_var_net) + 4,
@@ -176,7 +176,7 @@ for n_local_networks in range(n_local_networks_min, n_local_networks_max):
         d_collect_indicators = {
             # initial parameters
             "i_sample": i_sample,
-            "N_LOCAL_NETWORKS": n_local_networks,
+            "N_LOCAL_NETWORKS": n_networks,
             "N_VAR_NETWORK": n_var_network,
             "V_TOPOLOGY": v_topology,
             "N_OUTPUT_VARIABLES": n_output_variables,

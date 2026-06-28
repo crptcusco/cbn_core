@@ -87,8 +87,8 @@ def main():
 
     cbn = CBN.cbn_generator(
         v_topology=args.topology,
-        n_local_networks=args.networks,
-        n_vars_network=args.vars,
+        n_networks=args.networks,
+        n_var_network=args.vars,
         n_input_variables=1,  # This will be overridden by k in the generator
         n_output_variables=1,  # This will be overridden by k in the generator
         coupling_factory=get_dynamic_coupling,

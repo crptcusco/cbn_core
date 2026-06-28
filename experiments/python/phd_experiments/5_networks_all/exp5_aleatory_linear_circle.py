@@ -74,7 +74,7 @@ if os.path.exists(file_path):
 for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000 , 1, 2
     # Generate the aleatory local network template object
     o_template = LocalNetworkTemplate(
-        n_vars_network=N_VARS_NETWORK,
+        n_var_network=N_VARS_NETWORK,
         n_input_variables=N_INPUT_VARIABLES,
         n_output_variables=N_OUTPUT_VARIABLES,
         n_max_of_clauses=N_CLAUSES_FUNCTION,
@@ -87,7 +87,7 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000 , 1, 2
             v_topology=i_topology, n_nodes=N_LOCAL_NETWORKS_MIN
         )
 
-        for n_local_networks in range(
+        for n_networks in range(
             N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1
         ):  # 5
 
@@ -97,8 +97,8 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000 , 1, 2
             # Generate the CBN with the topology and template
             o_cbn = CBN.generate_cbn_from_template(
                 v_topology=i_topology,
-                n_local_networks=n_local_networks,
-                n_vars_network=N_VARS_NETWORK,
+                n_networks=n_networks,
+                n_var_network=N_VARS_NETWORK,
                 o_template=o_template,
                 l_global_edges=o_global_topology.l_edges,
             )
@@ -128,7 +128,7 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000 , 1, 2
             d_collect_indicators = {
                 # initial parameters
                 "i_sample": i_sample,
-                "n_local_networks": n_local_networks,
+                "n_networks": n_networks,
                 "n_var_network": N_VARS_NETWORK,
                 "v_topology": i_topology,
                 "n_output_variables": N_OUTPUT_VARIABLES,

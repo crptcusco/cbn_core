@@ -117,7 +117,7 @@ public:
   double calculate_canalization_density() const;
 
   static std::shared_ptr<CBN>
-  cbn_generator(int v_topology, int n_local_networks, int n_vars_network,
+  cbn_generator(int v_topology, int n_networks, int n_var_network,
                 int n_input_variables, int n_output_variables,
                 int n_max_of_clauses = 2, int n_max_of_literals = 3,
                 int n_edges = -1,

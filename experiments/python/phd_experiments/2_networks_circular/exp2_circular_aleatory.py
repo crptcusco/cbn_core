@@ -75,14 +75,14 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000
         n_var_network=N_VAR_NETWORK, n_input_variables=N_INPUT_VARIABLES
     )
 
-    for n_local_networks in range(
+    for n_networks in range(
         N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1
     ):  # 3-9
         l_data_sample = []
         print("Experiment", i_sample, "of", N_SAMPLES, " TOPOLOGY:", V_TOPOLOGY)
 
         o_cbn = o_path_circle_template.generate_cbn_from_template(
-            v_topology=V_TOPOLOGY, n_local_networks=n_local_networks
+            v_topology=V_TOPOLOGY, n_networks=n_networks
         )
 
         # find attractors
@@ -111,7 +111,7 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000
         d_collect_indicators = {
             # initial parameters
             "i_sample": i_sample,
-            "n_local_networks": n_local_networks,
+            "n_networks": n_networks,
             "n_var_network": N_VAR_NETWORK,
             "v_topology": V_TOPOLOGY,
             "n_output_variables": N_OUTPUT_VARIABLES,
@@ -161,7 +161,7 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000
             + "_"
             + str(V_TOPOLOGY)
             + "_"
-            + str(n_local_networks)
+            + str(n_networks)
             + ".pkl"
         )
         with open(pickle_path, "wb") as file:

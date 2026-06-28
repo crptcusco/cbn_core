@@ -15,14 +15,14 @@ N_MAX_CLAUSES = 2
 N_MAX_LITERALS = 2
 
 # generate aleatory CBN by topology
-# o_cbn = CBN.generate_aleatory_cbn_by_topology(n_local_networks=N_LOCAL_NETWORKS, n_var_network=N_VAR_NETWORK,
+# o_cbn = CBN.generate_aleatory_cbn_by_topology(n_networks=N_LOCAL_NETWORKS, n_var_network=N_VAR_NETWORK,
 #                                               v_topology=V_TOPOLOGY, n_output_variables=N_OUTPUT_VARIABLES)
 
 o_cbn = CBN.cbn_generator(
     v_topology=V_TOPOLOGY,
     n_edges=N_EDGES,
-    n_vars_network=N_VAR_NETWORK,
-    n_local_networks=N_LOCAL_NETWORKS,
+    n_var_network=N_VAR_NETWORK,
+    n_networks=N_LOCAL_NETWORKS,
     n_input_variables=N_INPUT_VARIABLES,
     n_output_variables=N_OUTPUT_VARIABLES,
     n_max_of_clauses=N_MAX_CLAUSES,

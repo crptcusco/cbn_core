@@ -40,8 +40,8 @@ from cbnetwork.coupling import OrCoupling, AndCoupling
 # cada una con 2 variables internas.
 cbn = CBN.cbn_generator(
     v_topology=1,  # 1 = Grafo Completo
-    n_local_networks=3,
-    n_vars_network=2,
+    n_networks=3,
+    n_var_network=2,
     n_input_variables=1,
     n_output_variables=1,
     coupling_strategy=OrCoupling()  # Estrategia de acoplamiento (puede ser OrCoupling, AndCoupling, etc.)

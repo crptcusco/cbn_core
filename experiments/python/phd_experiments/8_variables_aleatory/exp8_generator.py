@@ -63,10 +63,10 @@ for i_sample in range(1, N_SAMPLES + 1):
         v_topology=V_TOPOLOGY, n_nodes=N_LOCAL_NETWORKS
     )
 
-    for n_vars_network in range(N_VARIABLE_NET_MIN, N_VARIABLE_NET_MAX + 1, 5):
+    for n_var_network in range(N_VARIABLE_NET_MIN, N_VARIABLE_NET_MAX + 1, 5):
         # Generate the aleatory local network template object
         o_template = LocalNetworkTemplate(
-            n_vars_network=n_vars_network,
+            n_var_network=n_var_network,
             n_input_variables=N_INPUT_VARIABLES,
             n_output_variables=N_OUTPUT_VARIABLES,
             n_max_of_clauses=N_CLAUSES_FUNCTION,
@@ -77,14 +77,14 @@ for i_sample in range(1, N_SAMPLES + 1):
         print(f"Experiment {i_sample} of {N_SAMPLES} - Topology: {V_TOPOLOGY}")
         print(f"Networks: {N_LOCAL_NETWORKS} Variables Min: {N_VARIABLE_NET_MIN}")
         print(
-            f"Variables Max: {N_VARIABLE_NET_MAX} Current Variables: {n_vars_network}"
+            f"Variables Max: {N_VARIABLE_NET_MAX} Current Variables: {n_var_network}"
         )
 
         # Generate the CBN with the topology and template
         o_cbn = CBN.generate_cbn_from_template(
             v_topology=V_TOPOLOGY,
-            n_local_networks=N_LOCAL_NETWORKS,
-            n_vars_network=n_vars_network,
+            n_networks=N_LOCAL_NETWORKS,
+            n_var_network=n_var_network,
             o_template=o_template,
             l_global_edges=o_global_topology.l_edges,
         )
@@ -115,8 +115,8 @@ for i_sample in range(1, N_SAMPLES + 1):
         d_collect_indicators = {
             # Initial parameters
             "i_sample": i_sample,
-            "n_local_networks": N_LOCAL_NETWORKS,
-            "n_var_network": n_vars_network,
+            "n_networks": N_LOCAL_NETWORKS,
+            "n_var_network": n_var_network,
             "v_topology": V_TOPOLOGY,
             "n_output_variables": N_OUTPUT_VARIABLES,
             "n_clauses_function": N_CLAUSES_FUNCTION,
@@ -143,7 +143,7 @@ for i_sample in range(1, N_SAMPLES + 1):
 
         # Save the object to a pickle file
         pickle_path = (
-            f"{DIRECTORY_PKL}/cbn_{i_sample}_{N_LOCAL_NETWORKS}_{n_vars_network}.pkl"
+            f"{DIRECTORY_PKL}/cbn_{i_sample}_{N_LOCAL_NETWORKS}_{n_var_network}.pkl"
         )
         with open(pickle_path, "wb") as file:
             pickle.dump(o_cbn, file)

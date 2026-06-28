@@ -571,22 +571,22 @@ std::vector<std::vector<int8_t>> CBN::filter_compatible_pairs_kernel(
 }
 
 std::shared_ptr<CBN>
-CBN::cbn_generator(int v_topology, int n_local_networks, int n_vars_network,
+CBN::cbn_generator(int v_topology, int n_networks, int n_var_network,
                    int n_input_variables, int n_output_variables,
                    int n_max_of_clauses, int n_max_of_literals, int n_edges,
                    std::shared_ptr<CouplingStrategy> coupling_strategy) {
 
   auto o_topo = GlobalTopology::generate_sample_topology(
-      v_topology, n_local_networks, n_edges);
-  LocalNetworkTemplate o_template(n_vars_network, n_input_variables,
+      v_topology, n_networks, n_edges);
+  LocalNetworkTemplate o_template(n_var_network, n_input_variables,
                                   n_output_variables, n_max_of_clauses,
                                   n_max_of_literals, v_topology);
 
   std::vector<std::shared_ptr<LocalNetwork>> networks;
   int var_cont = 1;
-  for (int i = 1; i <= n_local_networks; ++i) {
+  for (int i = 1; i <= n_networks; ++i) {
     std::vector<int> ivars;
-    for (int j = 0; j < n_vars_network; ++j)
+    for (int j = 0; j < n_var_network; ++j)
       ivars.push_back(var_cont++);
     networks.push_back(std::make_shared<LocalNetwork>(i, ivars));
   }
@@ -631,12 +631,12 @@ CBN::cbn_generator(int v_topology, int n_local_networks, int n_vars_network,
     net->process_input_signals(inputs);
 
     for (int ivar : net->internal_variables) {
-      int tvar = ivar - ((net->index - 1) * n_vars_network);
-      if (tvar < 1 || tvar > n_vars_network)
+      int tvar = ivar - ((net->index - 1) * n_var_network);
+      if (tvar < 1 || tvar > n_var_network)
         continue;
 
       auto it_cnf =
-          o_template.d_variable_cnf_function.find(tvar + n_vars_network);
+          o_template.d_variable_cnf_function.find(tvar + n_var_network);
       if (it_cnf == o_template.d_variable_cnf_function.end())
         continue;
 
@@ -647,10 +647,10 @@ CBN::cbn_generator(int v_topology, int n_local_networks, int n_vars_network,
         for (int v : pc) {
           int abs_v = std::abs(v);
           int lval;
-          if (abs_v >= n_vars_network + 1 && abs_v <= n_vars_network * 2) {
-            lval = (abs_v - n_vars_network) + (net->index - 1) * n_vars_network;
-          } else if (abs_v > n_vars_network * 2) {
-            int signal_idx = abs_v - (n_vars_network * 2) - 1;
+          if (abs_v >= n_var_network + 1 && abs_v <= n_var_network * 2) {
+            lval = (abs_v - n_var_network) + (net->index - 1) * n_var_network;
+          } else if (abs_v > n_var_network * 2) {
+            int signal_idx = abs_v - (n_var_network * 2) - 1;
             if (signal_idx < (int)net->input_signals.size()) {
               lval = net->input_signals[signal_idx]->index_variable;
             } else {

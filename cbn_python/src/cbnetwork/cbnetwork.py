@@ -1518,8 +1518,8 @@ class CBN:
     @staticmethod
     def cbn_generator(
         v_topology: int,
-        n_local_networks: int,
-        n_vars_network: int,
+        n_networks: int,
+        n_var_network: int,
         n_input_variables: int,
         n_output_variables: int,
         n_max_of_clauses: Optional[int] = None,
@@ -1538,8 +1538,8 @@ class CBN:
         Args:
             v_topology: An integer ID specifying the global network topology
                 (e.g., 1 for 'complete', 3 for 'cycle').
-            n_local_networks: The number of local networks in the CBN.
-            n_vars_network: The number of variables within each local network.
+            n_networks: The number of local networks in the CBN.
+            n_var_network: The number of variables within each local network.
             n_input_variables: The number of input signals each local network
                 can receive.
             n_output_variables: The number of variables from a local network
@@ -1564,13 +1564,17 @@ class CBN:
         # GENERATE THE GLOBAL TOPOLOGY
         o_global_topology = GlobalTopology.generate_sample_topology(
             v_topology=v_topology,
+<<<<<<< HEAD
             n_nodes=n_local_networks,
+=======
+            n_nodes=n_networks,
+>>>>>>> fix-attractor-fields-inconsistency-4581358632143816223
             n_edges=n_edges,
             seed=seed,
         )
         # GENERATE THE LOCAL NETWORK TEMPLATE
         o_template = LocalNetworkTemplate(
-            n_vars_network=n_vars_network,
+            n_var_network=n_var_network,
             n_input_variables=n_input_variables,
             n_output_variables=n_output_variables,
             n_max_of_clauses=n_max_of_clauses,
@@ -1581,8 +1585,8 @@ class CBN:
         # GENERATE THE CBN WITH THE TOPOLOGY AND TEMPLATE
         o_cbn = CBN.generate_cbn_from_template(
             v_topology=v_topology,
-            n_local_networks=n_local_networks,
-            n_vars_network=n_vars_network,
+            n_networks=n_networks,
+            n_var_network=n_var_network,
             o_template=o_template,
             l_global_edges=o_global_topology.l_edges,
             coupling_strategy=coupling_strategy,
@@ -1593,6 +1597,7 @@ class CBN:
     @staticmethod
     def generate_from_config(config: Dict) -> "CBN":
         """Generates a CBN from a configuration dictionary (e.g., from JSON).
+<<<<<<< HEAD
         Supported keys:
             - n_networks (int): Number of local networks.
             - v_topology (int): Topology ID.
@@ -1619,6 +1624,17 @@ class CBN:
             n_edges = int(density * (2 * n_nets))
 
         # Determine coupling factory
+=======
+        The config keys are mapped directly to the cbn_generator arguments.
+        """
+        # Mapping density to n_edges if necessary
+        if config.get("v_topology") == 2 and "n_edges" not in config:
+            n_nets = config.get("n_networks", 4)
+            density = config.get("connectivity_density", 0.5)
+            config["n_edges"] = int(density * (2 * n_nets))
+
+        # Handle coupling factory from string
+>>>>>>> fix-attractor-fields-inconsistency-4581358632143816223
         coupling_type = config.get("coupling_type", "OR").upper()
 
         def factory(k):
@@ -1631,6 +1647,7 @@ class CBN:
             else:
                 return BitmaskFactory.create_mixed_random_function(k)
 
+<<<<<<< HEAD
         return CBN.cbn_generator(
             v_topology=v_topo,
             n_local_networks=n_nets,
@@ -1641,6 +1658,20 @@ class CBN:
             coupling_factory=factory,
             seed=seed,
         )
+=======
+        # Extract only relevant keys for cbn_generator
+        valid_args = [
+            "v_topology", "n_networks", "n_var_network",
+            "n_input_variables", "n_output_variables",
+            "n_max_of_clauses", "n_max_of_literals",
+            "n_edges", "seed"
+        ]
+
+        filtered_config = {k: v for k, v in config.items() if k in valid_args}
+        filtered_config["coupling_factory"] = factory
+
+        return CBN.cbn_generator(**filtered_config)
+>>>>>>> fix-attractor-fields-inconsistency-4581358632143816223
 
     @staticmethod
     def find_output_edges_by_network_index(
@@ -1669,20 +1700,20 @@ class CBN:
         return [edge for edge in l_directed_edges if edge.input_local_network == index]
 
     @staticmethod
-    def generate_local_networks_indexes_variables(n_local_networks, n_vars_network):
+    def generate_local_networks_indexes_variables(n_networks, n_var_network):
         """
         Generates local networks and their variable indexes.
         Args:
-            n_local_networks (int): Number of local networks to generate.
-            n_vars_network (int): Number of variables per network.
+            n_networks (int): Number of local networks to generate.
+            n_var_network (int): Number of variables per network.
         Returns:
             list: List of LocalNetwork objects.
         """
         l_local_networks = []
         v_cont_var = 1
-        for v_num_network in range(1, n_local_networks + 1):
+        for v_num_network in range(1, n_networks + 1):
             # generate the variables of the networks
-            internal_variables = list(range(v_cont_var, v_cont_var + n_vars_network))
+            internal_variables = list(range(v_cont_var, v_cont_var + n_var_network))
             # create the Local Network object
             o_local_network = LocalNetwork(
                 index=v_num_network, internal_variables=internal_variables
@@ -1690,14 +1721,14 @@ class CBN:
             # add the local network object to the list
             l_local_networks.append(o_local_network)
             # update the index of the variables
-            v_cont_var += n_vars_network
+            v_cont_var += n_var_network
         return l_local_networks
 
     @staticmethod
     def generate_cbn_from_template(
         v_topology,
-        n_local_networks,
-        n_vars_network,
+        n_networks,
+        n_var_network,
         o_template,
         l_global_edges,
         coupling_strategy: Optional[CouplingStrategy] = None,
@@ -1707,8 +1738,8 @@ class CBN:
         Generates a CBN (Coupled Boolean Network) using a given template and global edges.
         Args:
             v_topology: Topology of the CBN.
-            n_local_networks (int): Number of local networks.
-            n_vars_network (int): Number of variables per network.
+            n_networks (int): Number of local networks.
+            n_var_network (int): Number of variables per network.
             o_template: Template for local networks.
             l_global_edges (list): List of tuples representing the global edges between local networks.
             coupling_strategy (CouplingStrategy): The coupling strategy to use.
@@ -1717,7 +1748,7 @@ class CBN:
         """
         # Generate the local networks with indexes and variables (without relations or dynamics)
         l_local_networks = CBN.generate_local_networks_indexes_variables(
-            n_local_networks=n_local_networks, n_vars_network=n_vars_network
+            n_networks=n_networks, n_var_network=n_var_network
         )
         # Generate the directed edges between the local networks
         l_directed_edges = []
@@ -1748,6 +1779,11 @@ class CBN:
             current_strategy = coupling_strategy
             if coupling_factory is not None:
                 current_strategy = coupling_factory(k)
+
+            # Default to OrCoupling if no strategy is provided
+            if current_strategy is None:
+                from cbnetwork.coupling import OrCoupling
+                current_strategy = OrCoupling()
 
             # Get the output variables from the template, now passing k
             l_output_variables = o_template.get_output_variables_from_template(
@@ -2041,7 +2077,7 @@ class CBN:
         metadata = metadata or {}
         data = {
             "cbn_params": {
-                "n_local_networks": len(self.l_local_networks),
+                "n_networks": len(self.l_local_networks),
                 "n_total_variables": sum(
                     len(net.internal_variables) for net in self.l_local_networks
                 ),

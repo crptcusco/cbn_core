@@ -12,7 +12,7 @@ setup_logging()
 class LocalNetworkTemplate:
     def __init__(
         self,
-        n_vars_network,
+        n_var_network,
         n_input_variables,
         n_output_variables,
         n_max_of_clauses=None,
@@ -25,7 +25,7 @@ class LocalNetworkTemplate:
 
         Args:
             v_topology: Topology of the network.
-            n_vars_network (int): Number of variables in the network.
+            n_var_network (int): Number of variables in the network.
             n_input_variables (int): Number of input variables.
             n_output_variables (int): Number of output variables.
             n_max_of_clauses (int, optional): Maximum number of clauses for CNF functions. Defaults to None.
@@ -33,7 +33,7 @@ class LocalNetworkTemplate:
         """
         # Fixed Parameters
         self.v_topology = v_topology
-        self.n_vars_network = n_vars_network
+        self.n_var_network = n_var_network
         self.n_input_variables = n_input_variables
         self.n_output_variables = n_output_variables
         # Provide default values if None is passed
@@ -55,14 +55,14 @@ class LocalNetworkTemplate:
         """
         # Internal variables indices
         l_internal_var_indexes = list(
-            range(self.n_vars_network + 1, (self.n_vars_network * 2) + 1)
+            range(self.n_var_network + 1, (self.n_var_network * 2) + 1)
         )
 
         # Indices for input coupling signals, now supports multiple
         l_input_coupling_signal_indexes = list(
             range(
-                self.n_vars_network * 2 + 1,
-                self.n_vars_network * 2 + 1 + self.n_input_variables,
+                self.n_var_network * 2 + 1,
+                self.n_var_network * 2 + 1 + self.n_input_variables,
             )
         )
 
@@ -87,7 +87,11 @@ class LocalNetworkTemplate:
 
         # Generate output variable indexes
         self.l_output_var_indexes = self.rng.sample(
+<<<<<<< HEAD
             range(1, self.n_vars_network + 1), self.n_output_variables
+=======
+            range(1, self.n_var_network + 1), self.n_output_variables
+>>>>>>> fix-attractor-fields-inconsistency-4581358632143816223
         )
 
     def show(self):
@@ -156,7 +160,7 @@ class PathCircleTemplate(LocalNetworkTemplate):
         n_max_of_literals=3,
     ):
         return PathCircleTemplate(
-            n_vars_network=n_var_network,
+            n_var_network=n_var_network,
             n_input_variables=n_input_variables,
             n_output_variables=n_output_variables,
             n_max_of_clauses=n_max_of_clauses,
@@ -164,7 +168,7 @@ class PathCircleTemplate(LocalNetworkTemplate):
         )
 
     def generate_cbn_from_template(
-        self, v_topology, n_local_networks, coupling_strategy=None
+        self, v_topology, n_networks, coupling_strategy=None
     ):
         # Local import to avoid circular dependency
         from .cbnetwork import CBN
@@ -176,13 +180,13 @@ class PathCircleTemplate(LocalNetworkTemplate):
 
         # Generate topology to get edges
         o_global_topology = GlobalTopology.generate_sample_topology(
-            v_topology=v_topology, n_nodes=n_local_networks
+            v_topology=v_topology, n_nodes=n_networks
         )
 
         return CBN.generate_cbn_from_template(
             v_topology=v_topology,
-            n_local_networks=n_local_networks,
-            n_vars_network=self.n_vars_network,
+            n_networks=n_networks,
+            n_var_network=self.n_var_network,
             o_template=self,
             l_global_edges=o_global_topology.l_edges,
             coupling_strategy=coupling_strategy,

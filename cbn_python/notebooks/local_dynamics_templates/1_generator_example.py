@@ -22,8 +22,8 @@ N_MAX_LITERALS = 2
 
 o_cbn = CBN.cbn_generator(
     v_topology=V_TOPOLOGY,
-    n_local_networks=N_LOCAL_NETWORKS,
-    n_vars_network=N_VARS_NETWORK,
+    n_networks=N_LOCAL_NETWORKS,
+    n_var_network=N_VARS_NETWORK,
     n_input_variables=N_INPUT_VARS,
     n_output_variables=N_OUTPUT_VARS,
     n_max_of_clauses=N_MAX_CLAUSES,
