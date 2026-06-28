@@ -54,8 +54,8 @@ int main() {
         // Generate CBN
         auto cbn = CBN::cbn_generator(
             topology_type,
-            5,    // n_local_networks
-            8,    // n_vars_network
+            5,    // n_networks
+            8,    // n_var_network
             2,    // n_input_variables
             2,    // n_output_variables
             3,    // n_max_of_clauses

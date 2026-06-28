@@ -9,7 +9,7 @@ from cbnetwork.localnetwork import LocalNetwork
 from cbnetwork.localtemplates import LocalNetworkTemplate
 
 # pass the parameters
-n_local_networks = 10
+n_networks = 10
 n_var_network = 5
 n_output_variables = 2
 n_clauses_function = 2
@@ -19,7 +19,7 @@ GlobalTopology.show_allowed_topologies()
 
 # create a Coupled Boolean Network with the parameters
 o_template = LocalNetworkTemplate(
-    n_vars_network=n_var_network,
+    n_var_network=n_var_network,
     n_input_variables=n_output_variables,
     n_output_variables=n_output_variables,
     n_max_of_clauses=n_clauses_function,
@@ -28,13 +28,13 @@ o_template = LocalNetworkTemplate(
 
 # Generate topology to get edges
 o_temp_topology = GlobalTopology.generate_sample_topology(
-    v_topology=v_topology, n_nodes=n_local_networks
+    v_topology=v_topology, n_nodes=n_networks
 )
 
 o_cbn = CBN.generate_cbn_from_template(
     v_topology=v_topology,
-    n_local_networks=n_local_networks,
-    n_vars_network=n_var_network,
+    n_networks=n_networks,
+    n_var_network=n_var_network,
     o_template=o_template,
     l_global_edges=o_temp_topology.l_edges,
 )

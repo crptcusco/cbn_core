@@ -72,7 +72,7 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000 , 1, 2
 
     # GENERATE THE LOCAL NETWORK TEMPLATE
     o_template = LocalNetworkTemplate(
-        n_vars_network=N_VARS_NETWORK,
+        n_var_network=N_VARS_NETWORK,
         n_input_variables=N_INPUT_VARS,
         n_output_variables=N_OUTPUT_VARS,
         n_max_of_clauses=N_MAX_CLAUSES,
@@ -86,16 +86,16 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000 , 1, 2
     )
     print("Generated Global Topology")
 
-    for n_local_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):
+    for n_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):
         l_data_sample = []
         print(f"Experiment {i_sample} of {N_SAMPLES} - Topology: {V_TOPOLOGY}")
-        print(f"Networks: {n_local_networks} Variables: {N_VARS_NETWORK}")
+        print(f"Networks: {n_networks} Variables: {N_VARS_NETWORK}")
 
         # GENERATE THE CBN WITH THE TOPOLOGY AND TEMPLATE
         o_cbn = CBN.generate_cbn_from_template(
             v_topology=V_TOPOLOGY,
-            n_local_networks=n_local_networks,
-            n_vars_network=N_VARS_NETWORK,
+            n_networks=n_networks,
+            n_var_network=N_VARS_NETWORK,
             o_template=o_template,
             l_global_edges=o_global_topology.l_edges,
         )
@@ -126,12 +126,12 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000 , 1, 2
         d_collect_indicators = {
             # Initial parameters
             "i_sample": i_sample,
-            "n_local_networks": n_local_networks,
+            "n_networks": n_networks,
             "n_var_network": N_VARS_NETWORK,
             "v_topology": V_TOPOLOGY,
             "n_output_variables": N_OUTPUT_VARS,
             "n_clauses_function": N_MAX_CLAUSES,
-            "n_edges": n_local_networks,
+            "n_edges": n_networks,
             # Calculated parameters
             "n_local_attractors": o_cbn.get_n_local_attractors(),
             "n_pair_attractors": o_cbn.get_n_pair_attractors(),
@@ -155,7 +155,7 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000 , 1, 2
 
         # Save the object to a pickle file
         pickle_path = os.path.join(
-            DIRECTORY_PKL, f"cbn_{i_sample}_{n_local_networks}.pkl"
+            DIRECTORY_PKL, f"cbn_{i_sample}_{n_networks}.pkl"
         )
         with open(pickle_path, "wb") as file:
             pickle.dump(o_cbn, file)

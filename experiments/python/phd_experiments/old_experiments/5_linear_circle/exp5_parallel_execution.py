@@ -37,7 +37,7 @@ v_begin_exp = time.time()
 l_data_sample = []
 
 
-def process_sample(i_sample, n_local_networks, topology, n_var_network):
+def process_sample(i_sample, n_networks, topology, n_var_network):
     d_variable_cnf_function, l_var_exit = (
         PathCircleTemplate.generate_path_circle_template(
             n_var_network=n_var_network, n_input_variables=2
@@ -47,7 +47,7 @@ def process_sample(i_sample, n_local_networks, topology, n_var_network):
     print("Experiment", i_sample, "of", N_SAMPLES, " TOPOLOGY:", topology)
 
     o_cbn = PathCircleTemplate.generate_cbn_from_template(
-        v_topology=topology, n_local_networks=n_local_networks
+        v_topology=topology, n_networks=n_networks
     )
 
     v_begin_find_attractors = time.time()
@@ -68,7 +68,7 @@ def process_sample(i_sample, n_local_networks, topology, n_var_network):
 
     d_collect_indicators = {
         "i_sample": i_sample,
-        "n_local_networks": n_local_networks,
+        "n_networks": n_networks,
         "n_var_network": n_var_network,
         "v_topology": topology,
         "n_output_variables": N_OUTPUT_VARIABLES,
@@ -92,8 +92,8 @@ with multiprocessing.Pool() as pool:
     results = pool.starmap(
         partial_process_sample,
         [
-            (i_sample, n_local_networks, V_TOPOLOGY, N_VAR_NETWORK)
-            for n_local_networks in range(
+            (i_sample, n_networks, V_TOPOLOGY, N_VAR_NETWORK)
+            for n_networks in range(
                 N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1
             )
             for i_sample in range(1, N_SAMPLES + 1)

@@ -25,6 +25,8 @@ cd cbnetwork
 pip install -r requirements.txt
 ```
 
+> **Nota sobre Dependencias Opcionales:** Si deseas utilizar el solver basado en SAT (método `find_attractors_duvrova`), es necesario tener instalado el binario `minisat` en tu sistema (ej. `sudo apt-get install minisat` en sistemas basados en Debian). Para la mayoría de los casos de uso estándar y benchmarks, el método de fuerza bruta (`find_attractors_brute_force`) es suficiente y no requiere dependencias externas adicionales.
+
 ## Guía de Inicio Rápido
 
 A continuación, se muestra un ejemplo mínimo de cómo crear y analizar una Red Booleana Acoplada simple:
@@ -38,8 +40,8 @@ from cbnetwork.coupling import OrCoupling, AndCoupling
 # cada una con 2 variables internas.
 cbn = CBN.cbn_generator(
     v_topology=1,  # 1 = Grafo Completo
-    n_local_networks=3,
-    n_vars_network=2,
+    n_networks=3,
+    n_var_network=2,
     n_input_variables=1,
     n_output_variables=1,
     coupling_strategy=OrCoupling()  # Estrategia de acoplamiento (puede ser OrCoupling, AndCoupling, etc.)

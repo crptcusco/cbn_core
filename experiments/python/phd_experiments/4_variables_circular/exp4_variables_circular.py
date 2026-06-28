@@ -78,7 +78,7 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 100
 
         # generate aleatory CBN by topology
         o_cbn = CBN.generate_aleatory_cbn_by_topology(
-            n_local_networks=N_LOCAL_NETWORKS,
+            n_networks=N_LOCAL_NETWORKS,
             n_var_network=N_VAR_NETWORK,
             v_topology=V_TOPOLOGY,
             n_output_variables=N_OUTPUT_VARIABLES,
@@ -110,7 +110,7 @@ for i_sample in range(1, N_SAMPLES + 1):  # 1 - 100
         d_collect_indicators = {
             # initial parameters
             "i_sample": i_sample,
-            "n_local_networks": N_LOCAL_NETWORKS,
+            "n_networks": N_LOCAL_NETWORKS,
             "n_var_network": N_VAR_NETWORK,
             "v_topology": V_TOPOLOGY,
             "n_output_variables": N_OUTPUT_VARIABLES,

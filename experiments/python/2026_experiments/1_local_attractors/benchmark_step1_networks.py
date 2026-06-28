@@ -54,7 +54,7 @@ for i in range(1, N_SAMPLES + 1):
         iter_dir = output_dir / f"sample_{i}_nets_{n_nets}"
         iter_dir.mkdir(exist_ok=True)
         
-        base_cbn = template.generate_cbn_from_template(v_topology=V_TOPOLOGY, n_local_networks=n_nets)
+        base_cbn = template.generate_cbn_from_template(v_topology=V_TOPOLOGY, n_networks=n_nets)
         
         # Guardar topología original (antes de calcular atractores)
         base_cbn.to_json(str(iter_dir / "topology.json"))

@@ -28,12 +28,14 @@ class GlobalTopology:
         10: "random",
     }
 
-    def __init__(self, v_topology, l_edges):
+    def __init__(self, v_topology, l_edges, seed=None):
         """
         Initializes the global topology with the specified type and edges.
         """
         self.v_topology = v_topology
         self.l_edges = l_edges
+        self.seed = seed
+        self.rng = random.Random(seed)
         self.o_graph = nx.DiGraph()
         self.o_graph.add_edges_from(self.l_edges)
         self.d_network_color = {}
@@ -50,13 +52,14 @@ class GlobalTopology:
             logger.info("%s - %s", key, value)
 
     @classmethod
-    def generate_sample_topology(cls, v_topology, n_nodes, n_edges=None):
+    def generate_sample_topology(cls, v_topology, n_nodes, n_edges=None, seed=None):
         """
         Generates a global topology based on the specified type.
         :param v_topology: Type of topology to generate.
         :param n_nodes: Number of nodes in the topology.
         :param n_edges: Number of edges in the topology (if applicable).
-        :return: Instance of the 5_specific topology class.
+        :param seed: Seed for deterministic generation.
+        :return: Instance of the specific topology class.
         """
         if v_topology not in cls.allowed_topologies:
             msg = f"Invalid topology option: {v_topology}. Valid options are: {list(cls.allowed_topologies.keys())}"
@@ -69,25 +72,25 @@ class GlobalTopology:
             return NullTopology(message="Number of nodes must be greater than 1")
 
         if v_topology == 1:
-            return CompleteDigraph(n_nodes=n_nodes)
+            return CompleteDigraph(n_nodes=n_nodes, seed=seed)
         elif v_topology == 2:
-            return AleatoryFixedDigraph(n_nodes=n_nodes, n_edges=n_edges)
+            return AleatoryFixedDigraph(n_nodes=n_nodes, n_edges=n_edges, seed=seed)
         elif v_topology == 3:
-            return CycleDigraph(n_nodes=n_nodes)
+            return CycleDigraph(n_nodes=n_nodes, seed=seed)
         elif v_topology == 4:
-            return PathDigraph(n_nodes=n_nodes)
+            return PathDigraph(n_nodes=n_nodes, seed=seed)
         elif v_topology == 5:
             pass
         elif v_topology == 6:
             pass
         elif v_topology == 7:
-            return DorogovtsevMendesDigraph(n_nodes=n_nodes)
+            return DorogovtsevMendesDigraph(n_nodes=n_nodes, seed=seed)
         elif v_topology == 8:
-            return SmallWorldGraph(n_nodes=n_nodes, k_neighbors=3, p_rewire=0.5)
+            return SmallWorldGraph(n_nodes=n_nodes, k_neighbors=3, p_rewire=0.5, seed=seed)
         elif v_topology == 9:
-            return ScaleFreeGraph(n_nodes=n_nodes, m_edges=2)
+            return ScaleFreeGraph(n_nodes=n_nodes, m_edges=2, seed=seed)
         elif v_topology == 10:
-            return RandomGraph(n_nodes=n_nodes, p_edge=0.5)
+            return RandomGraph(n_nodes=n_nodes, p_edge=0.5, seed=seed)
         return NullTopology(message="Topology not implemented or unsupported")
 
     def generate_local_nets_colors(self):
@@ -95,7 +98,7 @@ class GlobalTopology:
         Generates random colors for local networks.
         """
         l_colors = list(mco.CSS4_COLORS.keys())
-        random.shuffle(l_colors)
+        self.rng.shuffle(l_colors)
         for i, color in enumerate(l_colors):
             self.d_network_color[i] = color
 
@@ -172,7 +175,7 @@ class NullTopology(GlobalTopology):
 
 
 class PathDigraph(GlobalTopology):
-    def __init__(self, n_nodes):
+    def __init__(self, n_nodes, seed=None):
         """
         Initializes a path graph with the given number of nodes.
         """
@@ -180,7 +183,7 @@ class PathDigraph(GlobalTopology):
         G = nx.relabel_nodes(G, {i: i + 1 for i in range(n_nodes)})
         l_edges = list(G.edges())
         self.n_nodes = n_nodes
-        super().__init__(v_topology=4, l_edges=l_edges)
+        super().__init__(v_topology=4, l_edges=l_edges, seed=seed)
 
     def add_node(self):
         """
@@ -195,7 +198,7 @@ class PathDigraph(GlobalTopology):
 
 
 class CycleDigraph(GlobalTopology):
-    def __init__(self, n_nodes):
+    def __init__(self, n_nodes, seed=None):
         """
         Initializes a cycle graph with the given number of nodes.
         """
@@ -203,7 +206,7 @@ class CycleDigraph(GlobalTopology):
         G = nx.relabel_nodes(G, {i: i + 1 for i in range(n_nodes)})
         l_edges = list(G.edges())
         self.n_nodes = n_nodes
-        super().__init__(v_topology=3, l_edges=l_edges)
+        super().__init__(v_topology=3, l_edges=l_edges, seed=seed)
 
     def add_node(self):
         """
@@ -221,7 +224,7 @@ class CycleDigraph(GlobalTopology):
 
 
 class CompleteDigraph(GlobalTopology):
-    def __init__(self, n_nodes):
+    def __init__(self, n_nodes, seed=None):
         """
         Initializes a complete graph with the given number of nodes.
         """
@@ -229,7 +232,7 @@ class CompleteDigraph(GlobalTopology):
         G = nx.relabel_nodes(G, {i: i + 1 for i in G.nodes()})
         l_edges = list(G.edges())
         self.n_nodes = n_nodes
-        super().__init__(v_topology=1, l_edges=l_edges)
+        super().__init__(v_topology=1, l_edges=l_edges, seed=seed)
 
     def add_node(self):
         """
@@ -246,7 +249,7 @@ class CompleteDigraph(GlobalTopology):
 
 
 class AleatoryFixedDigraph(GlobalTopology):
-    def __init__(self, n_nodes, n_edges=None):
+    def __init__(self, n_nodes, n_edges=None, seed=None):
         """
         Initializes a random directed graph with fixed edges.
         """
@@ -254,8 +257,10 @@ class AleatoryFixedDigraph(GlobalTopology):
         self.l_nodes = list(range(1, n_nodes + 1))
         self.n_edges = n_edges if n_edges is not None else n_nodes
         self.l_edges = []
+        self.seed = seed
+        self.rng = random.Random(seed)
         self.generate_edges()
-        super().__init__(v_topology=2, l_edges=self.l_edges)
+        super().__init__(v_topology=2, l_edges=self.l_edges, seed=seed)
 
     def generate_edges(self):
         """
@@ -291,13 +296,13 @@ class AleatoryFixedDigraph(GlobalTopology):
             # Create a spanning tree to guarantee connectivity.
             # For each node (except the first), add an edge from a random previous node.
             for i in range(1, self.n_nodes):
-                u = random.randint(0, i - 1)
+                u = self.rng.randint(0, i - 1)
                 G.add_edge(u, i)
 
             attempts = 0
             max_attempts = self.n_nodes * 10  # Limit attempts to avoid endless loop
             while G.number_of_edges() < self.n_edges and attempts < max_attempts:
-                u, v = random.sample(nodes, 2)
+                u, v = self.rng.sample(nodes, 2)
                 if not G.has_edge(u, v):
                     G.add_edge(u, v)
                 attempts += 1
@@ -425,7 +430,7 @@ class AleatoryFixedDigraph(GlobalTopology):
 
 
 class DorogovtsevMendesDigraph(GlobalTopology):
-    def __init__(self, n_nodes):
+    def __init__(self, n_nodes, seed=None):
         """
         Initializes a directed Dorogovtsev-Mendes graph.
         """
@@ -437,12 +442,14 @@ class DorogovtsevMendesDigraph(GlobalTopology):
         self.l_nodes = list(range(1, n_nodes + 1))
         self.l_edges = [(1, 2), (2, 3), (3, 1)]  # Triángulo inicial
         self.n_edges = len(self.l_edges)
+        self.seed = seed
+        self.rng = random.Random(seed)
 
         # Agregar nodos adicionales
         for new_node in range(4, self.n_nodes + 1):
             self.add_node(new_node)
 
-        super().__init__(v_topology=7, l_edges=self.l_edges)
+        super().__init__(v_topology=7, l_edges=self.l_edges, seed=seed)
 
     def add_node(self, new_node=None):
         """
@@ -454,7 +461,7 @@ class DorogovtsevMendesDigraph(GlobalTopology):
         self.l_nodes.append(new_node)
 
         # Seleccionar una arista existente aleatoriamente
-        u, v = random.choice(self.l_edges)
+        u, v = self.rng.choice(self.l_edges)
 
         # Conectar el nuevo nodo a ambos extremos de la arista seleccionada
         self.l_edges.append((new_node, u))
@@ -498,18 +505,21 @@ class DorogovtsevMendesDigraph(GlobalTopology):
 
 
 class SmallWorldGraph(GlobalTopology):
-    def __init__(self, n_nodes, k_neighbors, p_rewire):
+    def __init__(self, n_nodes, k_neighbors, p_rewire, seed=None):
         """
         Modelo Small-World de Watts-Strogatz.
 
         :param n_nodes: Número de nodos
         :param k_neighbors: Cada nodo se conecta a k vecinos más cercanos en un anillo
         :param p_rewire: Probabilidad de reconectar una arista
+        :param seed: Seed for deterministic generation
         """
         self.n_nodes = n_nodes
         self.k_neighbors = k_neighbors
         self.p_rewire = p_rewire
-        self.graph = nx.watts_strogatz_graph(n_nodes, k_neighbors, p_rewire)
+        self.seed = seed
+        self.rng = random.Random(seed)
+        self.graph = nx.watts_strogatz_graph(n_nodes, k_neighbors, p_rewire, seed=seed)
 
         # Renumerar nodos para que comiencen en 1
         mapping = {node: node + 1 for node in self.graph.nodes()}
@@ -519,7 +529,7 @@ class SmallWorldGraph(GlobalTopology):
         self.l_nodes = list(self.graph.nodes)
         self.l_edges = list(self.graph.edges)
 
-        super().__init__(v_topology=8, l_edges=self.l_edges)
+        super().__init__(v_topology=8, l_edges=self.l_edges, seed=seed)
 
     def add_edge(self, u, v):
         """
@@ -529,7 +539,7 @@ class SmallWorldGraph(GlobalTopology):
             return  # Evita duplicar aristas
 
         # Respetar la proximidad del modelo Small-World
-        if abs(u - v) <= self.k_neighbors // 2 or random.random() < self.p_rewire:
+        if abs(u - v) <= self.k_neighbors // 2 or self.rng.random() < self.p_rewire:
             self.graph.add_edge(u, v)
             self.l_edges.append((u, v))
 
@@ -544,7 +554,7 @@ class SmallWorldGraph(GlobalTopology):
         self.l_nodes.append(new_node)
 
         # Conectar con `k_neighbors` nodos existentes
-        neighbors = random.sample(
+        neighbors = self.rng.sample(
             self.l_nodes[:-1], min(self.k_neighbors, len(self.l_nodes) - 1)
         )
         for neighbor in neighbors:
@@ -557,7 +567,7 @@ class SmallWorldGraph(GlobalTopology):
         Genera una nueva arista aleatoria manteniendo las restricciones del modelo Small-World.
         """
         # Seleccionar un nodo al azar
-        u = random.choice(self.l_nodes)
+        u = self.rng.choice(self.l_nodes)
 
         # Definir posibles vecinos respetando la distancia en la topología anillo
         possible_neighbors = [
@@ -565,7 +575,7 @@ class SmallWorldGraph(GlobalTopology):
         ]
 
         # Con probabilidad p_rewire, conectar con un nodo aleatorio
-        if random.random() < self.p_rewire:
+        if self.rng.random() < self.p_rewire:
             possible_neighbors = [v for v in self.l_nodes if v != u]
 
         # Si no hay vecinos posibles, salir
@@ -573,7 +583,7 @@ class SmallWorldGraph(GlobalTopology):
             return None
 
         # Elegir un nodo vecino válido
-        v = random.choice(possible_neighbors)
+        v = self.rng.choice(possible_neighbors)
 
         # Evitar duplicar aristas
         if (u, v) in self.l_edges or (v, u) in self.l_edges:
@@ -593,16 +603,19 @@ class SmallWorldGraph(GlobalTopology):
 
 
 class ScaleFreeGraph(GlobalTopology):
-    def __init__(self, n_nodes, m_edges):
+    def __init__(self, n_nodes, m_edges, seed=None):
         """
         Modelo Scale-Free de Barabási-Albert.
 
         :param n_nodes: Número de nodos
         :param m_edges: Número de aristas a añadir por cada nuevo nodo
+        :param seed: Seed for deterministic generation
         """
         self.n_nodes = n_nodes
         self.m_edges = m_edges
-        self.graph = nx.barabasi_albert_graph(n_nodes, m_edges)
+        self.seed = seed
+        self.rng = random.Random(seed)
+        self.graph = nx.barabasi_albert_graph(n_nodes, m_edges, seed=seed)
         self.l_nodes = list(self.graph.nodes)
         self.l_edges = list(self.graph.edges)
 
@@ -614,7 +627,7 @@ class ScaleFreeGraph(GlobalTopology):
         self.l_nodes = list(self.graph.nodes)
         self.l_edges = list(self.graph.edges)
 
-        super().__init__(v_topology=9, l_edges=self.l_edges)
+        super().__init__(v_topology=9, l_edges=self.l_edges, seed=seed)
 
     def add_edge(self, u, v):
         """Añade una nueva arista entre los nodos u y v."""
@@ -633,10 +646,10 @@ class ScaleFreeGraph(GlobalTopology):
         total_degree = sum(degrees.values())
 
         if total_degree == 0:
-            targets = random.sample(existing_nodes, self.m_edges)
+            targets = self.rng.sample(existing_nodes, self.m_edges)
         else:
             probabilities = [degrees[node] / total_degree for node in existing_nodes]
-            targets = random.choices(
+            targets = self.rng.choices(
                 existing_nodes, weights=probabilities, k=self.m_edges
             )
 
@@ -658,31 +671,34 @@ class ScaleFreeGraph(GlobalTopology):
         if not self.l_nodes:
             raise ValueError("No hay nodos disponibles para generar una arista.")
 
-        u = random.choice(self.l_nodes)
+        u = self.rng.choice(self.l_nodes)
 
         degrees = dict(self.graph.degree(self.l_nodes))  # FIX: Pasar lista completa
         total_degree = sum(degrees.values())
 
         if total_degree == 0:
-            target = random.choice(self.l_nodes)
+            target = self.rng.choice(self.l_nodes)
         else:
             probabilities = [degrees[node] / total_degree for node in self.l_nodes]
-            target = random.choices(self.l_nodes, weights=probabilities, k=1)[0]
+            target = self.rng.choices(self.l_nodes, weights=probabilities, k=1)[0]
 
         self.add_edge(u, target)
 
 
 class RandomGraph(GlobalTopology):
-    def __init__(self, n_nodes, p_edge):
+    def __init__(self, n_nodes, p_edge, seed=None):
         """
         Modelo Aleatorio de Erdős-Rényi.
 
         :param n_nodes: Número de nodos
         :param p_edge: Probabilidad de que exista una arista entre cualquier par de nodos
+        :param seed: Seed for deterministic generation
         """
         self.n_nodes = n_nodes
         self.p_edge = p_edge
-        self.graph = nx.erdos_renyi_graph(n_nodes, p_edge)
+        self.seed = seed
+        self.rng = random.Random(seed)
+        self.graph = nx.erdos_renyi_graph(n_nodes, p_edge, seed=seed)
         self.l_nodes = list(self.graph.nodes)
         self.l_edges = list(self.graph.edges)
 
@@ -694,7 +710,7 @@ class RandomGraph(GlobalTopology):
         self.l_nodes = list(self.graph.nodes)
         self.l_edges = list(self.graph.edges)
 
-        super().__init__(v_topology=10, l_edges=self.l_edges)
+        super().__init__(v_topology=10, l_edges=self.l_edges, seed=seed)
 
     def add_edge(self, u, v):
         """Añade una nueva arista entre los nodos u y v."""
@@ -708,7 +724,7 @@ class RandomGraph(GlobalTopology):
         new_node = max(self.l_nodes) + 1
         self.l_nodes.append(new_node)
         for node in self.l_nodes[:-1]:
-            if random.random() < self.p_edge:
+            if self.rng.random() < self.p_edge:
                 self.add_edge(new_node, node)
 
         self.update_parent_graph()
@@ -718,9 +734,9 @@ class RandomGraph(GlobalTopology):
         if len(self.l_nodes) < 2:
             return  # No se pueden generar aristas si hay menos de dos nodos
 
-        u, v = random.sample(self.l_nodes, 2)  # Selecciona dos nodos distintos
+        u, v = self.rng.sample(self.l_nodes, 2)  # Selecciona dos nodos distintos
         if (u, v) not in self.l_edges and (v, u) not in self.l_edges:
-            if random.random() < self.p_edge:
+            if self.rng.random() < self.p_edge:
                 self.add_edge(u, v)
 
     def update_parent_graph(self):

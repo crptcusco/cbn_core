@@ -9,15 +9,15 @@ using namespace cbnetwork;
 int main() {
   // Parameters for a small CBN
   int v_topology = 1; // Complete
-  int n_local_networks = 3;
-  int n_vars_network = 3;
+  int n_networks = 3;
+  int n_var_network = 3;
   int n_input_variables = 1;
   int n_output_variables = 1;
 
   CustomText::make_title("Parity Test: Python to C++ Translation");
 
   // Generate CBN
-  auto o_cbn = CBN::cbn_generator(v_topology, n_local_networks, n_vars_network,
+  auto o_cbn = CBN::cbn_generator(v_topology, n_networks, n_var_network,
                                   n_input_variables, n_output_variables);
 
   // Run analysis pipeline

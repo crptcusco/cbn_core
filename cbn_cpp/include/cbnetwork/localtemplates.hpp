@@ -13,7 +13,7 @@ namespace cbnetwork {
 class LocalNetworkTemplate {
 public:
     int v_topology;
-    int n_vars_network;
+    int n_var_network;
     int n_input_variables;
     int n_output_variables;
     int n_max_of_clauses;
@@ -23,7 +23,7 @@ public:
     std::map<int, std::vector<std::vector<int>>> d_variable_cnf_function;
 
     LocalNetworkTemplate(int vars_net, int in_vars, int out_vars, int max_clauses = 2, int max_literals = 3, int topo = 1)
-        : v_topology(topo), n_vars_network(vars_net), n_input_variables(in_vars),
+        : v_topology(topo), n_var_network(vars_net), n_input_variables(in_vars),
           n_output_variables(out_vars), n_max_of_clauses(max_clauses), n_max_of_literals(max_literals) {
         generate_local_dynamic();
     }
@@ -33,12 +33,12 @@ public:
         std::mt19937 gen(rd());
 
         std::vector<int> l_internal_var_indexes;
-        for (int i = n_vars_network + 1; i <= n_vars_network * 2; ++i) {
+        for (int i = n_var_network + 1; i <= n_var_network * 2; ++i) {
             l_internal_var_indexes.push_back(i);
         }
 
         std::vector<int> l_input_coupling_signal_indexes;
-        for (int i = n_vars_network * 2 + 1; i <= n_vars_network * 2 + n_input_variables; ++i) {
+        for (int i = n_var_network * 2 + 1; i <= n_var_network * 2 + n_input_variables; ++i) {
             l_input_coupling_signal_indexes.push_back(i);
         }
 
@@ -62,7 +62,7 @@ public:
         }
 
         std::vector<int> output_options;
-        for (int i = 1; i <= n_vars_network; ++i) output_options.push_back(i);
+        for (int i = 1; i <= n_var_network; ++i) output_options.push_back(i);
         std::shuffle(output_options.begin(), output_options.end(), gen);
         l_output_var_indexes.assign(output_options.begin(), output_options.begin() + n_output_variables);
     }

@@ -25,7 +25,7 @@ assert o_global_topology is not None, "Failed to generate global topology"
 
 # GENERATE THE LOCAL NETWORK TEMPLATE
 o_template = LocalNetworkTemplate(
-    n_vars_network=N_VARS_NETWORK,
+    n_var_network=N_VARS_NETWORK,
     n_input_variables=N_INPUT_VARS,
     n_output_variables=N_OUTPUT_VARS,
     n_max_of_clauses=N_MAX_CLAUSES,
@@ -36,8 +36,8 @@ o_template = LocalNetworkTemplate(
 # GENERATE THE CBN WITH THE TOPOLOGY AND TEMPLATE
 o_cbn = CBN.generate_cbn_from_template(
     v_topology=V_TOPOLOGY,
-    n_local_networks=N_LOCAL_NETWORKS,
-    n_vars_network=N_VARS_NETWORK,
+    n_networks=N_LOCAL_NETWORKS,
+    n_var_network=N_VARS_NETWORK,
     o_template=o_template,
     l_global_edges=o_global_topology.l_edges,
 )

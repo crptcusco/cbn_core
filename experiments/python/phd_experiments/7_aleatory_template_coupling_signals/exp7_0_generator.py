@@ -59,7 +59,7 @@ if os.path.exists(file_path):
 for i_sample in range(1, N_SAMPLES + 1):
     # Generate the aleatory local network template object
     o_template = LocalNetworkTemplate(
-        n_vars_network=N_VAR_NETWORK,
+        n_var_network=N_VAR_NETWORK,
         n_input_variables=N_INPUT_VARIABLES,
         n_output_variables=N_OUTPUT_VARIABLES,
         n_max_of_clauses=N_CLAUSES_FUNCTION,
@@ -67,25 +67,25 @@ for i_sample in range(1, N_SAMPLES + 1):
         v_topology=V_TOPOLOGY,
     )
 
-    for n_local_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):
+    for n_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):
         # Generate the global topology object
         o_global_topology = GlobalTopology.generate_sample_topology(
-            v_topology=V_TOPOLOGY, n_nodes=n_local_networks
+            v_topology=V_TOPOLOGY, n_nodes=n_networks
         )
         # Calculate the range of edges
-        v_begin_edges = n_local_networks
-        v_end_edges = n_local_networks + (n_local_networks // 2) + 1
+        v_begin_edges = n_networks
+        v_end_edges = n_networks + (n_networks // 2) + 1
 
         for n_edges in range(v_begin_edges, v_end_edges):
             print(f"Experiment {i_sample} of {N_SAMPLES} - Topology: {V_TOPOLOGY}")
-            print(f"Networks: {n_local_networks} Variables: {N_VAR_NETWORK}")
+            print(f"Networks: {n_networks} Variables: {N_VAR_NETWORK}")
             print(f"Current edges: {n_edges}")
 
             # Generate the CBN with the topology and template
             o_cbn = CBN.generate_cbn_from_template(
                 v_topology=V_TOPOLOGY,
-                n_local_networks=n_local_networks,
-                n_vars_network=N_VAR_NETWORK,
+                n_networks=n_networks,
+                n_var_network=N_VAR_NETWORK,
                 o_template=o_template,
                 l_global_edges=o_global_topology.l_edges,
             )
@@ -116,7 +116,7 @@ for i_sample in range(1, N_SAMPLES + 1):
             d_collect_indicators = {
                 # Initial parameters
                 "i_sample": i_sample,
-                "n_local_networks": n_local_networks,
+                "n_networks": n_networks,
                 "n_var_network": N_VAR_NETWORK,
                 "v_topology": V_TOPOLOGY,
                 "n_output_variables": N_OUTPUT_VARIABLES,
@@ -144,7 +144,7 @@ for i_sample in range(1, N_SAMPLES + 1):
 
             # Save the object to a pickle file
             pickle_path = (
-                f"{DIRECTORY_PKL}/cbn_{i_sample}_{n_local_networks}_{n_edges}.pkl"
+                f"{DIRECTORY_PKL}/cbn_{i_sample}_{n_networks}_{n_edges}.pkl"
             )
             with open(pickle_path, "wb") as file:
                 pickle.dump(o_cbn, file)

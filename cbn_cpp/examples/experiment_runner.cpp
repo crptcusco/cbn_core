@@ -12,8 +12,8 @@ using namespace std::chrono;
 struct ExperimentParams {
     int n_samples = 10;
     int v_topology = 1; // 1: Complete, 3: Cycle, 4: Path
-    int n_local_networks = 5;
-    int n_vars_network = 8;
+    int n_networks = 5;
+    int n_var_network = 8;
     int n_input_variables = 2;
     int n_output_variables = 2;
     int n_max_of_clauses = 3;
@@ -42,8 +42,8 @@ int main(int argc, char** argv) {
         std::string arg = argv[i];
         if (arg == "--samples" && i + 1 < argc) params.n_samples = std::stoi(argv[++i]);
         else if (arg == "--topology" && i + 1 < argc) params.v_topology = std::stoi(argv[++i]);
-        else if (arg == "--networks" && i + 1 < argc) params.n_local_networks = std::stoi(argv[++i]);
-        else if (arg == "--vars" && i + 1 < argc) params.n_vars_network = std::stoi(argv[++i]);
+        else if (arg == "--networks" && i + 1 < argc) params.n_networks = std::stoi(argv[++i]);
+        else if (arg == "--vars" && i + 1 < argc) params.n_var_network = std::stoi(argv[++i]);
         else if (arg == "--inputs" && i + 1 < argc) params.n_input_variables = std::stoi(argv[++i]);
         else if (arg == "--outputs" && i + 1 < argc) params.n_output_variables = std::stoi(argv[++i]);
         else if (arg == "--output_file" && i + 1 < argc) params.output_file = argv[++i];
@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
     }
 
     std::cout << "Starting experiment: " << params.n_samples << " samples, "
-              << params.n_local_networks << " networks, " << params.n_vars_network << " vars." << std::endl;
+              << params.n_networks << " networks, " << params.n_var_network << " vars." << std::endl;
 
     std::ofstream out(params.output_file);
     out << "sample_id,topology,n_networks,n_vars,step1_time,step2_time,step3_time,total_time,attractors,pairs,fields\n";
@@ -66,8 +66,8 @@ int main(int argc, char** argv) {
 
         auto cbn = CBN::cbn_generator(
             params.v_topology,
-            params.n_local_networks,
-            params.n_vars_network,
+            params.n_networks,
+            params.n_var_network,
             params.n_input_variables,
             params.n_output_variables,
             params.n_max_of_clauses,
@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
         }
 
         std::ofstream log(params.output_file, std::ios_base::app);
-        log << s + 1 << "," << params.v_topology << "," << params.n_local_networks << "," << params.n_vars_network << ","
+        log << s + 1 << "," << params.v_topology << "," << params.n_networks << "," << params.n_var_network << ","
             << t1 << "," << t2 << "," << t3 << "," << tt << "," << n_attr << "," << n_pairs << "," << n_fields << "\n";
         log.flush();
         log.close();

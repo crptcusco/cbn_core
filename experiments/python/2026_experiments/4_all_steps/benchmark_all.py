@@ -48,7 +48,7 @@ for i in tqdm(range(1, N_SAMPLES + 1), desc="Progreso"):
     for n_nets in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):
         
         # 1. GENERAR RED BASE (Topología idéntica para todos los perfiles)
-        base_cbn = template.generate_cbn_from_template(v_topology=V_TOPOLOGY, n_local_networks=n_nets)
+        base_cbn = template.generate_cbn_from_template(v_topology=V_TOPOLOGY, n_networks=n_nets)
         
         for p1, p2, p3, name in PROFILES:
             # 2. CLONAR RED (Estado limpio para cada perfil)

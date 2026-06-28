@@ -45,7 +45,7 @@ for i in range(1, N_SAMPLES + 1):
         iter_dir.mkdir(exist_ok=True)
         
         # PASO 1: Duvrova
-        cbn = template.generate_cbn_from_template(v_topology=V_TOPOLOGY, n_local_networks=n_nets)
+        cbn = template.generate_cbn_from_template(v_topology=V_TOPOLOGY, n_networks=n_nets)
         cbn.find_attractors_duvrova()
         
         # PASO 2: Pares compatibles

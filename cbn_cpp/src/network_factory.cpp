@@ -25,9 +25,9 @@ std::shared_ptr<CBN> NetworkFactory::create_from_config(const ExperimentConfig& 
     }
 
     return CBN::cbn_generator(
-        config.topology_type,
-        config.n_local_networks,
-        config.n_vars_network,
+        config.v_topology,
+        config.n_networks,
+        config.n_var_network,
         config.n_input_variables,
         config.n_output_variables,
         config.n_max_of_clauses,

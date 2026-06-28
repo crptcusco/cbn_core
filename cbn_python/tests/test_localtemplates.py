@@ -15,7 +15,7 @@ def test_generate_local_dynamic_structure():
     n_input = 1
     n_output = 2
     template = LocalNetworkTemplate(
-        n_vars_network=n_vars,
+        n_var_network=n_vars,
         n_input_variables=n_input,
         n_output_variables=n_output,
         n_max_of_clauses=2,
@@ -34,7 +34,7 @@ def test_get_output_variables_from_template():
     n_input = 1
     n_output = 3
     template = LocalNetworkTemplate(
-        n_vars_network=n_vars,
+        n_var_network=n_vars,
         n_input_variables=n_input,
         n_output_variables=n_output,
         n_max_of_clauses=2,

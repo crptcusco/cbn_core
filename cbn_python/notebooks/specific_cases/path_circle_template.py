@@ -15,7 +15,7 @@ o_path_circle_template = PathCircleTemplate.generate_path_circle_template(
 
 # Generate the CBN with o template
 o_cbn = o_path_circle_template.generate_cbn_from_template(
-    v_topology=V_TOPOLOGY, n_local_networks=N_LOCAL_NETWORKS
+    v_topology=V_TOPOLOGY, n_networks=N_LOCAL_NETWORKS
 )
 
 # Show the CBN Information

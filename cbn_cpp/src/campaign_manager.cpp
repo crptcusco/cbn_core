@@ -31,9 +31,9 @@ void CampaignManager::run_campaign(const std::string& config_path) {
     for (const auto& j_exp : j_config["experiments"]) {
         ExperimentConfig config;
         config.id = j_exp["id"].get<std::string>();
-        config.topology_type = j_exp["topology_type"].get<int>();
-        config.n_local_networks = j_exp["n_local_networks"].get<int>();
-        config.n_vars_network = j_exp["n_vars_network"].get<int>();
+        config.v_topology = j_exp["v_topology"].get<int>();
+        config.n_networks = j_exp["n_networks"].get<int>();
+        config.n_var_network = j_exp["n_var_network"].get<int>();
         config.n_input_variables = j_exp["n_input_variables"].get<int>();
         config.n_output_variables = j_exp["n_output_variables"].get<int>();
         config.n_max_of_clauses = j_exp.value("n_max_of_clauses", 2);

@@ -8,6 +8,8 @@ from itertools import product
 from math import ceil
 from typing import Dict, List, Optional
 
+from .coupling import AndCoupling, OrCoupling
+from .coupling_bitmask import CouplingFactory as BitmaskFactory
 import numpy as np
 
 from .cbnetwork_utils import _convert_to_tuple as _convert_to_tuple
@@ -504,17 +506,14 @@ class CBN:
         def get_true_table_index(o_state, o_output_signal):
             true_table_index = ""
             for v_output_variable in o_output_signal.l_output_variables:
-                pos = o_local_network.total_variables.index(v_output_variable)
-                value = o_state.l_variable_values[pos]
-                true_table_index += str(value)
+                try:
+                    pos = o_local_network.total_variables.index(v_output_variable)
+                    value = o_state.l_variable_values[pos]
+                    true_table_index += str(value)
+                except ValueError:
+                    # Variable not found in total_variables
+                    pass
             return true_table_index
-
-        def update_output_signals(l_signals_in_attractor, o_output_signal, o_attractor):
-            output_value = l_signals_in_attractor[0]
-            if output_value == "0":
-                o_output_signal.d_out_value_to_attractor[0].append(o_attractor)
-            elif output_value == "1":
-                o_output_signal.d_out_value_to_attractor[1].append(o_attractor)
 
         l_directed_edges = CBN.find_output_edges_by_network_index(
             o_local_network.index, self.l_directed_edges
@@ -523,35 +522,40 @@ class CBN:
             # Reset lists to avoid accumulation
             o_output_signal.d_out_value_to_attractor[0] = []
             o_output_signal.d_out_value_to_attractor[1] = []
-            l_signals_for_output = []
+            signals_for_output = set()
+
             for o_local_scene in o_local_network.local_scenes:
-                l_signals_in_local_scene = []
+                signals_in_local_scene = set()
                 for o_attractor in o_local_scene.l_attractors:
-                    l_signals_in_attractor = [
-                        o_output_signal.true_table[
-                            get_true_table_index(o_state, o_output_signal)
-                        ]
-                        for o_state in o_attractor.l_states
-                    ]
-                    if len(set(l_signals_in_attractor)) == 1:
-                        l_signals_in_local_scene.append(l_signals_in_attractor[0])
-                        update_output_signals(
-                            l_signals_in_attractor, o_output_signal, o_attractor
+                    signals_in_attractor = set()
+                    for o_state in o_attractor.l_states:
+                        idx = get_true_table_index(o_state, o_output_signal)
+                        if idx in o_output_signal.true_table:
+                            val = o_output_signal.true_table[idx]
+                            signals_in_attractor.add(val)
+
+                    if len(signals_in_attractor) == 1:
+                        val_str = list(signals_in_attractor)[0]
+                        val_int = int(val_str)
+                        signals_in_local_scene.add(val_int)
+                        o_output_signal.d_out_value_to_attractor[val_int].append(
+                            o_attractor
                         )
-                if len(set(l_signals_in_local_scene)) == 1:
-                    l_signals_for_output.append(l_signals_in_local_scene[0])
-                else:
-                    l_signals_for_output.extend(l_signals_in_local_scene)
-            signal_set_length = len(set(l_signals_for_output))
-            if signal_set_length == 1:
-                o_output_signal.kind_signal = 1
-                # print("INFO: the output signal is restricted")
-            elif signal_set_length == 2:
-                o_output_signal.kind_signal = 3
-                # print("INFO: the output signal is stable")
+                    else:
+                        # Attractor is not stable for this signal (oscillates)
+                        signals_in_local_scene.add(-1)
+
+                for s in signals_in_local_scene:
+                    signals_for_output.add(s)
+
+            if len(signals_for_output) == 1 and -1 not in signals_for_output:
+                o_output_signal.kind_signal = 1  # RESTRICTED
+            elif -1 in signals_for_output:
+                o_output_signal.kind_signal = 4  # NOT STABLE
+            elif len(signals_for_output) == 2:
+                o_output_signal.kind_signal = 3  # STABLE
             else:
-                o_output_signal.kind_signal = 4
-                # print("INFO: the scene signal is not stable. This CBN doesn't have stable Attractor Fields")
+                o_output_signal.kind_signal = 2  # NOT COMPUTE / EMPTY
 
     def _count_total_attractors(self) -> int:
         """
@@ -1081,17 +1085,9 @@ class CBN:
         # Paso 4: Generar el diccionario de campos de atractores a partir de la base final
         self.d_attractor_fields = {}
         for i, base_element in enumerate(l_base_pairs, start=1):
-            field = set()
-            try:
-                for pair in base_element:
-                    try:
-                        for item in pair:
-                            field.add(tuple(item) if isinstance(item, list) else item)
-                    except TypeError:
-                        field.add(pair)
-            except TypeError:
-                field.add(base_element)
-            self.d_attractor_fields[i] = list(field)
+            # Flatten, remove duplicates and sort
+            flat_field = list(set(CBN.flatten(base_element)))
+            self.d_attractor_fields[i] = sorted(flat_field)
         CustomText.make_sub_sub_title("END MOUNT STABLE ATTRACTOR FIELDS (PARALLEL)")
 
     @staticmethod
@@ -1187,16 +1183,9 @@ class CBN:
         # Step 4: Generate the dictionary of attractor fields from the final base
         self.d_attractor_fields = {}
         for i, base_element in enumerate(l_base_pairs, start=1):
-            # Flatten the base element to obtain a flat list of attractor indices
-            flat_field = list(CBN.flatten(base_element))
-            # Remove duplicates while preserving order
-            seen = set()
-            unique_flat_field = []
-            for item in flat_field:
-                if item not in seen:
-                    seen.add(item)
-                    unique_flat_field.append(item)
-            self.d_attractor_fields[i] = unique_flat_field
+            # Flatten, remove duplicates and sort
+            flat_field = list(set(CBN.flatten(base_element)))
+            self.d_attractor_fields[i] = sorted(flat_field)
         CustomText.make_sub_sub_title(
             f"END MOUNT STABLE ATTRACTOR FIELDS (Total:{len(l_base_pairs)})"
         )
@@ -1217,6 +1206,64 @@ class CBN:
                 for o_directed_edge in self.l_directed_edges
             ),
         )
+
+    def export_to_networkx(self):
+        """
+        Exports the CBN global topology and local structure to a NetworkX DiGraph.
+        Nodes represent either internal variables or coupling signals.
+        Edges represent the dependencies within local networks and between networks.
+        """
+        import networkx as nx
+
+        G = nx.DiGraph()
+
+        # Add all internal nodes and edges within local networks
+        for net in self.l_local_networks:
+            for var_model in net.descriptive_function_variables:
+                node_id = f"N{net.index}_V{var_model.index}"
+                G.add_node(
+                    node_id,
+                    type="internal",
+                    network=net.index,
+                    var_index=var_model.index,
+                    label=f"V{var_model.index}",
+                )
+
+                # Add edges from literals in CNF
+                for clause in var_model.cnf_function:
+                    for lit in clause:
+                        source_var = abs(lit)
+                        # Check if it's an internal variable or an input signal
+                        is_input = any(
+                            e.index_variable == source_var
+                            for e in self.get_input_edges_by_network_index(net.index)
+                        )
+
+                        if is_input:
+                            source_id = f"SIG_{source_var}"
+                        else:
+                            source_id = f"N{net.index}_V{source_var}"
+
+                        G.add_edge(source_id, node_id)
+
+        # Add edges between networks (coupling signals)
+        for edge in self.l_directed_edges:
+            sig_id = f"SIG_{edge.index_variable}"
+            G.add_node(
+                sig_id,
+                type="signal",
+                network_source=edge.output_local_network,
+                network_target=edge.input_local_network,
+                var_index=edge.index_variable,
+                label=f"S{edge.index_variable}",
+            )
+
+            # Connect source variables to the signal node
+            for out_var in edge.l_output_variables:
+                source_id = f"N{edge.output_local_network}_V{out_var}"
+                G.add_edge(source_id, sig_id)
+
+        return G
 
     def show_coupled_signals_kind(self) -> None:
         CustomText.print_duplex_line()
@@ -1471,8 +1518,8 @@ class CBN:
     @staticmethod
     def cbn_generator(
         v_topology: int,
-        n_local_networks: int,
-        n_vars_network: int,
+        n_networks: int,
+        n_var_network: int,
         n_input_variables: int,
         n_output_variables: int,
         n_max_of_clauses: Optional[int] = None,
@@ -1480,6 +1527,7 @@ class CBN:
         n_edges: Optional[int] = None,
         coupling_strategy: Optional[CouplingStrategy] = None,
         coupling_factory=None,
+        seed: Optional[int] = None,
     ) -> "CBN":
         """Factory method to generate a complete CBN from high-level parameters.
         This is the primary entry point for creating a CBN. It automates the
@@ -1490,8 +1538,8 @@ class CBN:
         Args:
             v_topology: An integer ID specifying the global network topology
                 (e.g., 1 for 'complete', 3 for 'cycle').
-            n_local_networks: The number of local networks in the CBN.
-            n_vars_network: The number of variables within each local network.
+            n_networks: The number of local networks in the CBN.
+            n_var_network: The number of variables within each local network.
             n_input_variables: The number of input signals each local network
                 can receive.
             n_output_variables: The number of variables from a local network
@@ -1505,33 +1553,79 @@ class CBN:
             coupling_strategy: An instance of a `CouplingStrategy` subclass
                 that defines the logic for combining output signals (e.g.,
                 `OrCoupling()`, `AndCoupling()`). Defaults to `OrCoupling()`.
+            seed: Optional integer seed for deterministic generation.
         Returns:
             An initialized `CBN` object ready for analysis.
         """
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
+
         # GENERATE THE GLOBAL TOPOLOGY
         o_global_topology = GlobalTopology.generate_sample_topology(
-            v_topology=v_topology, n_nodes=n_local_networks, n_edges=n_edges
+            v_topology=v_topology,
+            n_nodes=n_networks,
+            n_edges=n_edges,
+            seed=seed,
         )
         # GENERATE THE LOCAL NETWORK TEMPLATE
         o_template = LocalNetworkTemplate(
-            n_vars_network=n_vars_network,
+            n_var_network=n_var_network,
             n_input_variables=n_input_variables,
             n_output_variables=n_output_variables,
             n_max_of_clauses=n_max_of_clauses,
             n_max_of_literals=n_max_of_literals,
             v_topology=v_topology,
+            seed=seed,
         )
         # GENERATE THE CBN WITH THE TOPOLOGY AND TEMPLATE
         o_cbn = CBN.generate_cbn_from_template(
             v_topology=v_topology,
-            n_local_networks=n_local_networks,
-            n_vars_network=n_vars_network,
+            n_networks=n_networks,
+            n_var_network=n_var_network,
             o_template=o_template,
             l_global_edges=o_global_topology.l_edges,
             coupling_strategy=coupling_strategy,
             coupling_factory=coupling_factory,
         )
         return o_cbn
+
+    @staticmethod
+    def generate_from_config(config: Dict) -> "CBN":
+        """Generates a CBN from a configuration dictionary (e.g., from JSON).
+        The config keys are mapped directly to the cbn_generator arguments.
+        """
+        # Mapping density to n_edges if necessary
+        if config.get("v_topology") == 2 and "n_edges" not in config:
+            n_nets = config.get("n_networks", 4)
+            density = config.get("connectivity_density", 0.5)
+            config["n_edges"] = int(density * (2 * n_nets))
+
+        # Handle coupling factory from string
+        coupling_type = config.get("coupling_type", "OR").upper()
+
+        def factory(k):
+            if coupling_type == "OR":
+                return BitmaskFactory.create_or_function(k)
+            elif coupling_type == "AND":
+                return BitmaskFactory.create_and_function(k)
+            elif coupling_type == "MAJORITY":
+                return BitmaskFactory.create_majority_function(k)
+            else:
+                return BitmaskFactory.create_mixed_random_function(k)
+
+        # Extract only relevant keys for cbn_generator
+        valid_args = [
+            "v_topology", "n_networks", "n_var_network",
+            "n_input_variables", "n_output_variables",
+            "n_max_of_clauses", "n_max_of_literals",
+            "n_edges", "seed"
+        ]
+
+        filtered_config = {k: v for k, v in config.items() if k in valid_args}
+        filtered_config["coupling_factory"] = factory
+
+        return CBN.cbn_generator(**filtered_config)
 
     @staticmethod
     def find_output_edges_by_network_index(
@@ -1560,20 +1654,20 @@ class CBN:
         return [edge for edge in l_directed_edges if edge.input_local_network == index]
 
     @staticmethod
-    def generate_local_networks_indexes_variables(n_local_networks, n_vars_network):
+    def generate_local_networks_indexes_variables(n_networks, n_var_network):
         """
         Generates local networks and their variable indexes.
         Args:
-            n_local_networks (int): Number of local networks to generate.
-            n_vars_network (int): Number of variables per network.
+            n_networks (int): Number of local networks to generate.
+            n_var_network (int): Number of variables per network.
         Returns:
             list: List of LocalNetwork objects.
         """
         l_local_networks = []
         v_cont_var = 1
-        for v_num_network in range(1, n_local_networks + 1):
+        for v_num_network in range(1, n_networks + 1):
             # generate the variables of the networks
-            internal_variables = list(range(v_cont_var, v_cont_var + n_vars_network))
+            internal_variables = list(range(v_cont_var, v_cont_var + n_var_network))
             # create the Local Network object
             o_local_network = LocalNetwork(
                 index=v_num_network, internal_variables=internal_variables
@@ -1581,14 +1675,14 @@ class CBN:
             # add the local network object to the list
             l_local_networks.append(o_local_network)
             # update the index of the variables
-            v_cont_var += n_vars_network
+            v_cont_var += n_var_network
         return l_local_networks
 
     @staticmethod
     def generate_cbn_from_template(
         v_topology,
-        n_local_networks,
-        n_vars_network,
+        n_networks,
+        n_var_network,
         o_template,
         l_global_edges,
         coupling_strategy: Optional[CouplingStrategy] = None,
@@ -1598,8 +1692,8 @@ class CBN:
         Generates a CBN (Coupled Boolean Network) using a given template and global edges.
         Args:
             v_topology: Topology of the CBN.
-            n_local_networks (int): Number of local networks.
-            n_vars_network (int): Number of variables per network.
+            n_networks (int): Number of local networks.
+            n_var_network (int): Number of variables per network.
             o_template: Template for local networks.
             l_global_edges (list): List of tuples representing the global edges between local networks.
             coupling_strategy (CouplingStrategy): The coupling strategy to use.
@@ -1608,7 +1702,7 @@ class CBN:
         """
         # Generate the local networks with indexes and variables (without relations or dynamics)
         l_local_networks = CBN.generate_local_networks_indexes_variables(
-            n_local_networks=n_local_networks, n_vars_network=n_vars_network
+            n_networks=n_networks, n_var_network=n_var_network
         )
         # Generate the directed edges between the local networks
         l_directed_edges = []
@@ -1639,6 +1733,11 @@ class CBN:
             current_strategy = coupling_strategy
             if coupling_factory is not None:
                 current_strategy = coupling_factory(k)
+
+            # Default to OrCoupling if no strategy is provided
+            if current_strategy is None:
+                from cbnetwork.coupling import OrCoupling
+                current_strategy = OrCoupling()
 
             # Get the output variables from the template, now passing k
             l_output_variables = o_template.get_output_variables_from_template(
@@ -1932,7 +2031,7 @@ class CBN:
         metadata = metadata or {}
         data = {
             "cbn_params": {
-                "n_local_networks": len(self.l_local_networks),
+                "n_networks": len(self.l_local_networks),
                 "n_total_variables": sum(
                     len(net.internal_variables) for net in self.l_local_networks
                 ),

@@ -58,7 +58,7 @@ for n_var in range(N_VAR_MIN, N_VAR_MAX + 1):
             n_var_network=n_var, n_input_variables=N_INPUT_VARIABLES
         )
         base_cbn = template.generate_cbn_from_template(
-            v_topology=V_TOPOLOGY, n_local_networks=N_LOCAL_NETWORKS
+            v_topology=V_TOPOLOGY, n_networks=N_LOCAL_NETWORKS
         )
         base_cbn.to_json(str(iter_dir / "topology.json"))
 

@@ -33,16 +33,17 @@ void export_network_structure_json(int sample_id, std::shared_ptr<CBN> cbn, cons
   cbn->save_network_to_json(filepath);
 }
 
-void export_full_trace_json(int sample_id, const std::string &strategy_name, std::shared_ptr<CBN> cbn, const ExperimentResults &res, const std::string &output_dir, const std::string& input_id, int topology_type) {
+void export_full_trace_json(int sample_id, const std::string &strategy_name, std::shared_ptr<CBN> cbn, const ExperimentResults &res, const std::string &output_dir, const std::string& input_id, int v_topology) {
   std::string filepath = output_dir + "/" + get_filename(sample_id, strategy_name, "dynamics.json");
   json j_out;
 
   // 1. Topology Metadata
   j_out["topology_metadata"] = {
-      {"topology_type", strategy_name},
+      {"v_topology", v_topology},
+      {"topology_strategy", strategy_name},
       {"topology_id", input_id},
-      {"nodes", (int)cbn->l_local_networks.size()},
-      {"v_elements", (int)(cbn->get_n_local_variables() * cbn->l_local_networks.size())}
+      {"n_networks", (int)cbn->l_local_networks.size()},
+      {"n_var_network", (int)cbn->get_n_local_variables()}
   };
 
   // 2. Pipeline Execution

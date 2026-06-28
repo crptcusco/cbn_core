@@ -68,7 +68,7 @@ if os.path.exists(file_path):
     print("Existing file deleted:", file_path)
 
 # Begin the process
-for n_local_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):  # 5
+for n_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):  # 5
     for i_sample in range(1, N_SAMPLES + 1):  # 1 - 1000 , 1, 2
         # generate the aleatory local network template
         o_path_circle_template = PathCircleTemplate.generate_path_circle_template(
@@ -79,7 +79,7 @@ for n_local_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):  
             print("Experiment", i_sample, "of", N_SAMPLES, " TOPOLOGY:", i_topology)
 
             o_cbn = o_path_circle_template.generate_cbn_from_template(
-                v_topology=i_topology, n_local_networks=n_local_networks
+                v_topology=i_topology, n_networks=n_networks
             )
 
             # find attractors
@@ -108,7 +108,7 @@ for n_local_networks in range(N_LOCAL_NETWORKS_MIN, N_LOCAL_NETWORKS_MAX + 1):  
             d_collect_indicators = {
                 # initial parameters
                 "i_sample": i_sample,
-                "n_local_networks": n_local_networks,
+                "n_networks": n_networks,
                 "n_var_network": N_VAR_NETWORK,
                 "v_topology": i_topology,
                 "n_output_variables": N_OUTPUT_VARIABLES,
