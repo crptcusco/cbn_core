@@ -19,9 +19,10 @@ def validar_esquema(config: Dict[str, Any]) -> bool:
 def main():
     parser = argparse.ArgumentParser(description="Generador de configuraciones CBN (Source of Truth)")
     
-    # Argumentos de Archivo
+    # Argumentos de Archivo y Mapeo estadístico
     parser.add_argument("--output", type=str, default="config.json", help="Ruta del archivo de salida")
     parser.add_argument("--name", type=str, default="exp_custom", help="Nombre del experimento")
+    parser.add_argument("--samples", type=int, default=1, help="Número de muestras independientes a generar")
     
     # Argumentos Topológicos y Dinámicos
     parser.add_argument("--networks", type=int, default=4, help="Número de redes (n_networks)")
@@ -31,7 +32,7 @@ def main():
     parser.add_argument("--outputs", type=int, default=2, help="Variables de salida (n_output_variables)")
     parser.add_argument("--density", type=float, default=0.3, help="Densidad de conectividad (connectivity_density)")
     parser.add_argument("--coupling", type=str, default="NONE", choices=["NONE", "OR", "XOR", "AND", "IDENTITY"], help="Tipo de acoplamiento")
-    parser.add_argument("--seed", type=int, default=42, help="Semilla aleatoria")
+    parser.add_argument("--seed", type=int, default=42, help="Semilla aleatoria base")
     
     # Argumento para modo batch predefinido
     parser.add_argument("--batch", action="store_true", help="Generar un batch automático de exploración")
@@ -58,18 +59,19 @@ def main():
                     "seed": args.seed
                 })
     else:
-        # Modo Custom: usa los argumentos pasados por CLI
-        configs.append({
-            "experiment_name": args.name,
-            "n_networks": args.networks,
-            "v_topology": args.topology,
-            "n_var_network": args.vars,
-            "n_input_variables": args.inputs,
-            "n_output_variables": args.outputs,
-            "connectivity_density": args.density,
-            "coupling_type": args.coupling,
-            "seed": args.seed
-        })
+        # Modo Custom: Genera N muestras distribuidas estadísticamente
+        for i in range(1, args.samples + 1):
+            configs.append({
+                "experiment_name": f"{args.name}_s{i:03d}" if args.samples > 1 else args.name,
+                "n_networks": args.networks,
+                "v_topology": args.topology,
+                "n_var_network": args.vars,
+                "n_input_variables": args.inputs,
+                "n_output_variables": args.outputs,
+                "connectivity_density": args.density,
+                "coupling_type": args.coupling,
+                "seed": args.seed + i  # Desplazamiento de semilla por muestra
+            })
 
     # Validar
     for cfg in configs:
@@ -82,7 +84,7 @@ def main():
     with open(output_path, "w") as f:
         json.dump(configs, f, indent=4)
 
-    print(f"Configuración generada exitosamente en {output_path} ({len(configs)} experimentos)")
+    print(f"Configuración generada exitosamente en {output_path} ({len(configs)} experimentos/muestras)")
 
 if __name__ == "__main__":
     main()

@@ -8,8 +8,8 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict
 
-# Configuración de rutas para importaciones internas
-root_dir = Path(__file__).resolve().parent
+# Setup path for internal imports
+root_dir = Path(__file__).resolve().parent.parent.parent  # Sube de 'python' -> 'experiments' -> 'cbn_core'
 sys.path.append(str(root_dir / "cbn_python" / "src"))
 
 from cbnetwork.cbnetwork import CBN
