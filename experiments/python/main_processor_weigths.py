@@ -8,8 +8,8 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict, List
 
-# Corregido: Sube 3 niveles desde 'experiments/python' hasta la raíz 'cbn_core'
-root_dir = Path(__file__).resolve().parent.parent.parent
+# Configuración de rutas para importaciones internas
+root_dir = Path(__file__).resolve().parent
 sys.path.append(str(root_dir / "cbn_python" / "src"))
 
 from cbnetwork.cbnetwork import CBN
@@ -28,7 +28,6 @@ def validate_config(config: Dict[str, Any]) -> bool:
     return True
 
 def run_pipeline(config: Dict[str, Any], experiment_name: str, output_base: Path) -> Dict[str, Any]:
-    """Executes the full CBN analysis pipeline for a single configuration and returns its summary."""
     exp_dir = output_base / experiment_name
     exp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -55,7 +54,7 @@ def run_pipeline(config: Dict[str, Any], experiment_name: str, output_base: Path
         # Step 1: Local Attractors
         logger.info(f"[{experiment_name}] Step 1: Finding local attractors...")
         t1_start = time.perf_counter()
-        cbn.find_attractors_brute_force()
+        cbn.find_local_attractors_parallel_with_weights()
         summary["performance"]["t_p1"] = time.perf_counter() - t1_start
         summary["results"]["n_local_attractors"] = cbn.get_n_local_attractors()
         with open(exp_dir / "attractors.json", "w") as f:
@@ -64,7 +63,7 @@ def run_pipeline(config: Dict[str, Any], experiment_name: str, output_base: Path
         # Step 2: Compatible Pairs
         logger.info(f"[{experiment_name}] Step 2: Finding compatible pairs...")
         t2_start = time.perf_counter()
-        cbn.find_compatible_pairs()
+        cbn.find_compatible_pairs_parallel_with_weights()
         summary["performance"]["t_p2"] = time.perf_counter() - t2_start
         summary["results"]["n_pairs"] = cbn.get_n_pair_attractors()
         with open(exp_dir / "pairs.json", "w") as f:
@@ -73,7 +72,7 @@ def run_pipeline(config: Dict[str, Any], experiment_name: str, output_base: Path
         # Step 3: Attractor Fields
         logger.info(f"[{experiment_name}] Step 3: Mounting stable attractor fields...")
         t3_start = time.perf_counter()
-        cbn.mount_stable_attractor_fields()
+        cbn.mount_stable_attractor_fields_parallel_chunks()
         summary["performance"]["t_p3"] = time.perf_counter() - t3_start
         summary["results"]["n_fields"] = cbn.get_n_attractor_fields()
         with open(exp_dir / "fields.json", "w") as f:
@@ -98,10 +97,10 @@ def run_pipeline(config: Dict[str, Any], experiment_name: str, output_base: Path
         with open(exp_dir / "execution_summary.json", "w") as f:
             json.dump(summary, f, indent=4)
         
-        return summary # Retornamos el resumen para la consolidación global
+        return summary
 
 def main():
-    parser = argparse.ArgumentParser(description="CBN Production Processor")
+    parser = argparse.ArgumentParser(description="CBN Production Processor (Dubrova Optimized)")
     parser.add_argument("--config", type=str, required=True, help="Path to input JSON config")
     parser.add_argument("--output", type=str, default="results", help="Base directory for outputs")
 
@@ -118,9 +117,8 @@ def main():
 
     configs = data if isinstance(data, list) else [data]
 
-    logger.info(f"Starting processing for {len(configs)} configurations...")
+    logger.info(f"Starting processing for {len(configs)} configurations via Dubrova Method...")
 
-    # Lista para acumular las métricas resumidas de todo el lote
     global_metrics = []
 
     for i, cfg in enumerate(configs):
@@ -129,11 +127,8 @@ def main():
             continue
 
         exp_name = cfg.get("experiment_name", f"exp_{config_path.stem}_{i}")
-        
-        # Ejecutar y obtener resumen de la muestra
         res_summary = run_pipeline(cfg, exp_name, output_base)
         
-        # Guardar solo datos numéricos y de estado esenciales para análisis estadístico rápida
         global_metrics.append({
             "experiment_name": res_summary["experiment_name"],
             "status": res_summary["status"],
@@ -147,7 +142,6 @@ def main():
             "n_fields": res_summary["results"].get("n_fields", 0)
         })
 
-    # --- NUEVO: Exportación del reporte global consolidado ---
     global_report_path = output_base / "batch_execution_summary.json"
     with open(global_report_path, "w") as f:
         json.dump(global_metrics, f, indent=4)

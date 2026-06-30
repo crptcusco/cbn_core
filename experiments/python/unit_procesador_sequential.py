@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def run_unit_pipeline(topology_path: Path, output_dir: Path):
     """
     Carga una topología CBN existente desde un JSON y ejecuta 
-    los pasos de análisis (Atractores, Pares y Campos).
+    los pasos de análisis optimizados (Atractores vía Dubrova, Pares y Campos).
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -34,26 +34,19 @@ def run_unit_pipeline(topology_path: Path, output_dir: Path):
     }
 
     try:
-        # Paso 0: Carga de Topología existente
-        logger.info(f"Cargando topología desde {topology_path.name}...")
-        t_start = time.perf_counter()
-        
-        # NOTA: Si el binding de C++ usa 'from_json', cambia 'load_from_json' por 'from_json'
         # Paso 0: Carga de Topología existente con detección dinámica
         logger.info(f"Cargando topología desde {topology_path.name}...")
         t_start = time.perf_counter()
         
-        # Intentar las convenciones de nomenclatura más comunes de Jules
+        # Detección dinámica de las convenciones de nomenclatura de Jules
         if hasattr(CBN, 'from_json'):
             cbn = CBN.from_json(str(topology_path))
         elif hasattr(CBN, 'load_json'):
             cbn = CBN.load_json(str(topology_path))
         else:
             try:
-                # Intentar cargar directo a través del constructor de la clase
                 cbn = CBN(str(topology_path))
             except TypeError:
-                # Si todo falla, listamos los métodos para saber el nombre exacto
                 metodos_json = [m for m in dir(CBN) if 'json' in m.lower() or 'load' in m.lower()]
                 raise AttributeError(
                     f"No se detectó el método de carga en la clase CBN.\n"
@@ -62,10 +55,13 @@ def run_unit_pipeline(topology_path: Path, output_dir: Path):
         
         summary["performance"]["t_load"] = time.perf_counter() - t_start
 
-        # Paso 1: Atractores Locales
-        logger.info("Paso 1: Buscando atractores locales (Brute Force)...")
+        # Paso 1: Atractores Locales (Método Dubrova)
+        logger.info("Paso 1: Buscando atractores locales (Dubrova)...")
         t1_start = time.perf_counter()
-        cbn.find_attractors_brute_force()
+        
+        # Cambio crítico: De fuerza bruta a Duvrova
+        cbn.find_attractors_duvrova()
+        
         summary["performance"]["t_p1"] = time.perf_counter() - t1_start
         summary["results"]["n_local_attractors"] = cbn.get_n_local_attractors()
         
@@ -113,7 +109,7 @@ def run_unit_pipeline(topology_path: Path, output_dir: Path):
             json.dump(summary, f, indent=4)
 
 def main():
-    parser = argparse.ArgumentParser(description="Procesador Unitario de CBN (Carga desde Topology)")
+    parser = argparse.ArgumentParser(description="Procesador Unitario de CBN (Optimizado con Dubrova)")
     parser.add_argument("--topology", type=str, required=True, help="Ruta al archivo topology.json de entrada")
     parser.add_argument("--output", type=str, default="unit_results", help="Directorio para guardar los JSON de salida")
 
