@@ -149,3 +149,5 @@ experiments/outputs/
 # Temporary and local IDE files
 .tmp_test_env/
 .vscode/
+*.png
+*.pdf
