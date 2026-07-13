@@ -10,7 +10,7 @@ TOPOLOGIES = [1, 2, 3, 7, 9]  # complete, linear, cycle, dm, sf
 NETWORKS_RANGE = (3, 6)
 VARS_RANGE = (3, 5)
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+ROOT_DIR = Path(__file__).resolve().parents[2]
 CPP_BINARY = ROOT_DIR / "cbn_cpp" / "build" / "scientific_benchmarking"
 PYTHON_GEN = ROOT_DIR / "experiments" / "mix" / "cbn_python_gen.py"
 PYTHON_SOLVER = ROOT_DIR / "experiments" / "mix" / "cbn_python_solver.py"
