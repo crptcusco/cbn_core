@@ -239,7 +239,7 @@ void CBN::mount_attractor_fields() { mount_stable_attractor_fields(); }
 void CBN::find_local_attractors_sequential() {
   for (auto &net : l_local_networks) {
     auto scenes = _generate_local_scenes(net);
-    LocalNetwork::find_local_attractors_brute_force_turbo(net, scenes);
+    LocalNetwork::find_local_attractors_brute_force(net, scenes);
     process_kind_signal(net);
   }
   _assign_global_indices_to_attractors();
@@ -286,7 +286,7 @@ void CBN::find_local_attractors_parallel_with_weights() {
     if (tid < (int)buckets.size()) {
       for (auto &net : buckets[tid]) {
         auto scenes = _generate_local_scenes(net);
-        LocalNetwork::find_local_attractors_brute_force_turbo(net, scenes);
+        LocalNetwork::find_local_attractors_brute_force(net, scenes);
         process_kind_signal(net);
       }
     }
@@ -432,8 +432,6 @@ void CBN::find_compatible_pairs_parallel_with_weights() {
   find_compatible_pairs_parallel();
 }
 
-void CBN::find_compatible_pairs_turbo() { find_compatible_pairs_parallel(); }
-
 void CBN::mount_stable_attractor_fields_parallel() {
   mount_stable_attractor_fields();
 }
@@ -532,10 +530,6 @@ void CBN::mount_stable_attractor_fields() {
   for (size_t i = 0; i < current_fields.size(); ++i) {
     d_attractor_fields[i + 1] = current_fields[i];
   }
-}
-
-void CBN::mount_stable_attractor_fields_turbo() {
-  mount_stable_attractor_fields();
 }
 
 std::vector<std::vector<int8_t>> CBN::filter_compatible_pairs_kernel(
@@ -1032,14 +1026,23 @@ CBN::find_input_edges_by_network_index(
   return result;
 }
 
-int CBN::get_n_local_attractors() const {
-  int count = 0;
+size_t CBN::get_n_local_attractors() const {
+  size_t count = 0;
   for (const auto &net : l_local_networks)
     count += net->attractor_count;
   return count;
 }
 
-int CBN::get_n_attractor_fields() const { return d_attractor_fields.size(); }
+size_t CBN::get_n_pair_attractors() const {
+  size_t count = 0;
+  for (const auto &edge : l_directed_edges) {
+    count += edge->d_comp_pairs_attractors_by_value[0].size() +
+             edge->d_comp_pairs_attractors_by_value[1].size();
+  }
+  return count;
+}
+
+size_t CBN::get_n_attractor_fields() const { return d_attractor_fields.size(); }
 
 void CBN::_assign_global_indices_to_attractors() {
   int g_index = 1;
