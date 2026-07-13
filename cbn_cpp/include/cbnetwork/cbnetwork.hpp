@@ -49,7 +49,6 @@ public:
 
   void find_compatible_pairs_parallel();
   void find_compatible_pairs_parallel_with_weights();
-  void find_compatible_pairs_turbo();
 
   void order_edges_canonically();
   void order_edges_by_compatibility();
@@ -59,7 +58,6 @@ public:
   void mount_stable_attractor_fields();
   void mount_stable_attractor_fields_parallel();
   void mount_stable_attractor_fields_parallel_chunks();
-  void mount_stable_attractor_fields_turbo();
 
   void generate_attractor_dictionary();
   void process_kind_signal(std::shared_ptr<LocalNetwork> o_local_network);

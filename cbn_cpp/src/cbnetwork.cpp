@@ -239,7 +239,7 @@ void CBN::mount_attractor_fields() { mount_stable_attractor_fields(); }
 void CBN::find_local_attractors_sequential() {
   for (auto &net : l_local_networks) {
     auto scenes = _generate_local_scenes(net);
-    LocalNetwork::find_local_attractors_brute_force_turbo(net, scenes);
+    LocalNetwork::find_local_attractors_brute_force(net, scenes);
     process_kind_signal(net);
   }
   _assign_global_indices_to_attractors();
@@ -286,7 +286,7 @@ void CBN::find_local_attractors_parallel_with_weights() {
     if (tid < (int)buckets.size()) {
       for (auto &net : buckets[tid]) {
         auto scenes = _generate_local_scenes(net);
-        LocalNetwork::find_local_attractors_brute_force_turbo(net, scenes);
+        LocalNetwork::find_local_attractors_brute_force(net, scenes);
         process_kind_signal(net);
       }
     }
@@ -432,8 +432,6 @@ void CBN::find_compatible_pairs_parallel_with_weights() {
   find_compatible_pairs_parallel();
 }
 
-void CBN::find_compatible_pairs_turbo() { find_compatible_pairs_parallel(); }
-
 void CBN::mount_stable_attractor_fields_parallel() {
   mount_stable_attractor_fields();
 }
@@ -532,10 +530,6 @@ void CBN::mount_stable_attractor_fields() {
   for (size_t i = 0; i < current_fields.size(); ++i) {
     d_attractor_fields[i + 1] = current_fields[i];
   }
-}
-
-void CBN::mount_stable_attractor_fields_turbo() {
-  mount_stable_attractor_fields();
 }
 
 std::vector<std::vector<int8_t>> CBN::filter_compatible_pairs_kernel(
