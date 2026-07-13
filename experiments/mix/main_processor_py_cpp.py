@@ -6,6 +6,7 @@ import sys
 import time
 import traceback
 import csv
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -18,10 +19,17 @@ while not (root_dir / "cbn_python").exists() and root_dir.parent != root_dir:
 sys.path.append(str(root_dir / "cbn_python" / "src"))
 
 from cbnetwork.cbnetwork import CBN
-from cbnetwork.utils.logging_config import setup_logging
 
-setup_logging()
+try:
+    from cbnetwork.utils.logging_config import setup_logging
+    setup_logging()
+except ImportError:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
 logger = logging.getLogger(__name__)
+
+# Definir la ruta global al binario de C++ (CPP_BINARY)
+CPP_BINARY = root_dir / "cbn_cpp" / "build" / "scientific_benchmarking"
 
 def validate_config(config: Dict[str, Any]) -> bool:
     """Basic validation of the configuration object."""
@@ -41,8 +49,8 @@ def load_identical_cbn(topology_path: Path) -> CBN:
     else:
         return CBN(str(topology_path))
 
-def execute_profile(cbn: CBN, profile: str) -> Tuple[float, float, float, float, int, int, int]:
-    """Ejecuta los métodos exactos de C++ correspondientes al perfil y retorna sus métricas."""
+def execute_python_profile(cbn: CBN, profile: str) -> Tuple[float, float, float, float, int, int, int]:
+    """Ejecuta los métodos exactos de Python correspondientes al perfil y retorna sus métricas."""
     t_p1 = t_p2 = t_p3 = 0.0
 
     if profile == "seq":
@@ -84,6 +92,9 @@ def execute_profile(cbn: CBN, profile: str) -> Tuple[float, float, float, float,
         cbn.mount_stable_attractor_fields_parallel_chunks()
         t_p3 = time.perf_counter() - t0
 
+    else:
+        raise ValueError(f"Unknown python profile: {profile}")
+
     total_t = t_p1 + t_p2 + t_p3
     
     # Extraer métricas topológicas de la red resuelta
@@ -93,35 +104,104 @@ def execute_profile(cbn: CBN, profile: str) -> Tuple[float, float, float, float,
 
     return t_p1, t_p2, t_p3, total_t, n_attr, n_pairs, n_fields
 
-def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, output_base: Path) -> List[Dict[str, Any]]:
-    """Genera la topología base, la guarda, y la procesa con los 3 métodos."""
+def execute_cpp_profile(topo_path: Path, exp_dir: Path) -> Tuple[float, float, float, float, int, int, int]:
+    """Ejecuta el motor en C++ mediante subprocess y extrae las métricas del JSON de salida."""
+    if not CPP_BINARY.exists():
+        raise FileNotFoundError(f"C++ binary not found at: {CPP_BINARY}. Please build it first using 'make build-cpp'.")
+
+    # Comando de ejecución C++
+    cmd = [
+        str(CPP_BINARY),
+        "--samples", "1",
+        "--input", str(topo_path),
+        "--dir", str(exp_dir)
+    ]
+    logger.info(f"Invocando C++ con comando: {' '.join(cmd)}")
+
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(f"C++ engine crashed with return code {result.returncode}.\nStderr: {result.stderr}\nStdout: {result.stdout}")
+
+    # Buscar archivo *dynamics*.json en exp_dir
+    dynamics_files = list(exp_dir.glob("*dynamics*.json"))
+    if not dynamics_files:
+        raise FileNotFoundError(f"No dynamics JSON output file found in {exp_dir} after C++ execution.")
+
+    # Elegimos preferiblemente Traditional, AdvancedParallel, o el primero disponible
+    cpp_dyn_file = None
+    for f in dynamics_files:
+        if "Traditional" in f.name:
+            cpp_dyn_file = f
+            break
+    if not cpp_dyn_file:
+        for f in dynamics_files:
+            if "AdvancedParallel" in f.name:
+                cpp_dyn_file = f
+                break
+    if not cpp_dyn_file:
+        cpp_dyn_file = dynamics_files[0]
+
+    logger.info(f"C++ dynamics output file found: {cpp_dyn_file}")
+
+    with open(cpp_dyn_file, "r") as f:
+        json_data = json.load(f)
+
+    # Extraer tiempos (convertir de ms a segundos)
+    perf_data = json_data.get("performance", {})
+    t_p1 = perf_data.get("step_1_ms", 0.0) / 1000.0
+    t_p2 = perf_data.get("step_2_ms", 0.0) / 1000.0
+    t_p3 = perf_data.get("step_3_ms", 0.0) / 1000.0
+    total_t = perf_data.get("total_ms", 0.0) / 1000.0
+
+    # Extraer conteos de atractores
+    # n_attractors: suma de longitud de "attractors" en cada "step_1_local_attractors"
+    step1 = json_data.get("pipeline_execution", {}).get("step_1_local_attractors", [])
+    n_attractors = sum(len(item.get("attractors", [])) for item in step1)
+
+    # n_pairs: longitud de "step_2_compatible_pairs"
+    step2 = json_data.get("pipeline_execution", {}).get("step_2_compatible_pairs", [])
+    n_pairs = len(step2)
+
+    # n_fields: longitud de "attractor_fields" en "step_3_global_fields"
+    step3 = json_data.get("pipeline_execution", {}).get("step_3_global_fields", {})
+    n_fields = len(step3.get("attractor_fields", []))
+
+    return t_p1, t_p2, t_p3, total_t, n_attractors, n_pairs, n_fields
+
+def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, output_base: Path, csv_path: Path, fieldnames: List[str]):
+    """Genera la topología base, la guarda, y la procesa con los 4 métodos, escribiendo inmediatamente al CSV."""
     exp_dir = output_base / experiment_name
     exp_dir.mkdir(parents=True, exist_ok=True)
     
     n_nets = config.get("n_networks", 0)
-    metrics_list = []
 
-    try:
-        # 1. Generar la "Red Maestra" y guardarla
-        logger.info(f"[{experiment_name}] Generando topología base...")
-        cbn_base = CBN.generate_from_config(config)
-        topo_path = exp_dir / "topology.json"
-        cbn_base.to_json(str(topo_path))
+    # 1. Generar la "Red Maestra" y guardarla
+    logger.info(f"[{experiment_name}] Generando topología base...")
+    cbn_base = CBN.generate_from_config(config)
+    topo_path = exp_dir / "topology.json"
+    cbn_base.to_json(str(topo_path))
 
-        # 2. Ejecutar los 3 perfiles sobre copias idénticas
-        profiles = ["seq", "par", "weights"]
+    # 2. Ejecutar los 4 perfiles sobre copias idénticas
+    profiles = ["seq", "par", "weights", "cpp"]
+
+    for profile in profiles:
+        logger.info(f"[{experiment_name}] Ejecutando perfil: {profile.upper()}...")
         
-        for profile in profiles:
-            logger.info(f"[{experiment_name}] Ejecutando perfil: {profile.upper()}...")
-            
-            # Cargar red limpia sin resolver
-            cbn_instance = load_identical_cbn(topo_path)
-            
-            # Procesar y medir tiempos
-            tp1, tp2, tp3, total, n_attr, n_pairs, n_fields = execute_profile(cbn_instance, profile)
-            
-            # Guardar resultados
-            metrics_list.append({
+        try:
+            if profile in ["seq", "par", "weights"]:
+                # Cargar red limpia sin resolver
+                cbn_instance = load_identical_cbn(topo_path)
+                # Procesar y medir tiempos
+                tp1, tp2, tp3, total, n_attr, n_pairs, n_fields = execute_python_profile(cbn_instance, profile)
+
+                # Guardar JSON específico de Python para depuración
+                with open(exp_dir / f"fields_{profile}.json", "w") as f:
+                    json.dump(cbn_instance.to_json_fields(), f, indent=4)
+            else:
+                # Perfil de C++
+                tp1, tp2, tp3, total, n_attr, n_pairs, n_fields = execute_cpp_profile(topo_path, exp_dir)
+
+            row = {
                 "sample": sample_id,
                 "n_nets": n_nets,
                 "perfil": profile,
@@ -132,21 +212,35 @@ def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, o
                 "n_attractors": n_attr,
                 "n_pairs": n_pairs,
                 "n_fields": n_fields
-            })
+            }
 
-            # (Opcional) Guardar JSONs específicos por método para depuración
-            with open(exp_dir / f"fields_{profile}.json", "w") as f:
-                json.dump(cbn_instance.to_json_fields(), f, indent=4)
+        except Exception as e:
+            logger.error(f"[{experiment_name}] Error en perfil {profile.upper()}: {e}")
+            logger.debug(traceback.format_exc())
+            # En caso de error, persistir registro con valores por defecto/error
+            row = {
+                "sample": sample_id,
+                "n_nets": n_nets,
+                "perfil": profile,
+                "t_p1": 0.0,
+                "t_p2": 0.0,
+                "t_p3": 0.0,
+                "total_t": 0.0,
+                "n_attractors": 0,
+                "n_pairs": 0,
+                "n_fields": 0
+            }
 
-    except Exception as e:
-        logger.error(f"[{experiment_name}] Falló el pipeline: {e}")
-        with open(exp_dir / "error_log.json", "w") as f:
-            json.dump({"error": str(e), "traceback": traceback.format_exc()}, f, indent=4)
+        # Escribir inmediatamente al CSV (modo append)
+        with open(csv_path, 'a', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            row_formatted = {k: (f"{v:.6f}" if isinstance(v, float) else v) for k, v in row.items()}
+            writer.writerow(row_formatted)
 
-    return metrics_list
+        logger.info(f"[{experiment_name}] Perfil {profile.upper()} completado y persistido en CSV.")
 
 def main():
-    parser = argparse.ArgumentParser(description="CBN All-in-One Benchmark Processor")
+    parser = argparse.ArgumentParser(description="CBN All-in-One Hybrid Benchmark Processor")
     parser.add_argument("--config", type=str, required=True, help="Path to input JSON config")
     parser.add_argument("--output", type=str, default="results", help="Base directory for outputs")
 
@@ -155,7 +249,7 @@ def main():
     output_base = Path(args.output)
 
     if not config_path.exists():
-        print(f"Error: Configuration file {args.config} not found.")
+        logger.error(f"Configuration file {args.config} not found.")
         sys.exit(1)
 
     with open(config_path, "r") as f:
@@ -163,32 +257,23 @@ def main():
 
     configs = data if isinstance(data, list) else [data]
 
-    logger.info(f"Iniciando evaluación 3-en-1 para {len(configs)} configuraciones...")
-
-    all_metrics = []
-
-    for i, cfg in enumerate(configs):
-        if not validate_config(cfg):
-            logger.warning(f"Saltando configuración inválida en índice {i}")
-            continue
-
-        sample_id = i + 1
-        exp_name = cfg.get("experiment_name", f"exp_{config_path.stem}_{sample_id}")
-        
-        # Ejecuta la red 3 veces (1 por método) y retorna 3 filas de datos
-        sample_metrics = run_pipeline(cfg, sample_id, exp_name, output_base)
-        all_metrics.extend(sample_metrics)
+    # Asegurar que el directorio de salida existe
+    output_base.mkdir(parents=True, exist_ok=True)
 
     # --- CONFIGURAR CSV EN TIEMPO REAL ---
     csv_path = output_base / "benchmark_granular_workflow.csv"
     fieldnames = ["sample", "n_nets", "perfil", "t_p1", "t_p2", "t_p3", "total_t", "n_attractors", "n_pairs", "n_fields"]
     
-    # Crear el archivo y escribir la cabecera antes del bucle
-    with open(csv_path, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
+    # Crear el archivo e inicializar cabeceras si no existe
+    if not csv_path.exists():
+        with open(csv_path, 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+        logger.info(f"Creado archivo CSV nuevo en: {csv_path}")
+    else:
+        logger.info(f"Usando archivo CSV existente en: {csv_path} (modo append)")
 
-    logger.info(f"Iniciando evaluación 3-en-1 para {len(configs)} configuraciones...")
+    logger.info(f"Iniciando evaluación híbrida (4-en-1) para {len(configs)} configuraciones...")
 
     for i, cfg in enumerate(configs):
         if not validate_config(cfg):
@@ -198,19 +283,16 @@ def main():
         sample_id = i + 1
         exp_name = cfg.get("experiment_name", f"exp_{config_path.stem}_{sample_id}")
         
-        # Ejecutar la red (retorna las 3 filas de la muestra actual)
-        sample_metrics = run_pipeline(cfg, sample_id, exp_name, output_base)
+        logger.info(f"\n=========================================")
+        logger.info(f"Procesando muestra {sample_id}/{len(configs)}: {exp_name}")
+        logger.info(f"=========================================")
         
-        # 👈 ESCRIBIR INMEDIATAMENTE AL CSV (Modo Append 'a')
-        with open(csv_path, 'a', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            for row in sample_metrics:
-                row_formatted = {k: (f"{v:.6f}" if isinstance(v, float) else v) for k, v in row.items()}
-                writer.writerow(row_formatted)
-                
-        logger.info(f"==> Muestra {sample_id}/{len(configs)} guardada en CSV.")
+        # Ejecuta el pipeline completo para la muestra, que corre y escribe los 4 perfiles inmediatamente al CSV
+        run_pipeline(cfg, sample_id, exp_name, output_base, csv_path, fieldnames)
 
-    logger.info(f"¡Benchmark completado con éxito! Datos finales en: {csv_path}")
+        logger.info(f"==> Muestra {sample_id}/{len(configs)} finalizada.")
+
+    logger.info(f"\n¡Benchmark híbrido completado con éxito! Datos finales en: {csv_path}")
 
 if __name__ == "__main__":
     main()
