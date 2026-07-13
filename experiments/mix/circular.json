@@ -1,0 +1,112 @@
+[
+    {
+        "experiment_name": "circular_10_s001",
+        "n_networks": 10,
+        "v_topology": 3,
+        "n_var_network": 6,
+        "n_input_variables": 2,
+        "n_output_variables": 2,
+        "connectivity_density": 0.5,
+        "coupling_type": "OR",
+        "seed": 43
+    },
+    {
+        "experiment_name": "circular_10_s002",
+        "n_networks": 10,
+        "v_topology": 3,
+        "n_var_network": 6,
+        "n_input_variables": 2,
+        "n_output_variables": 2,
+        "connectivity_density": 0.5,
+        "coupling_type": "OR",
+        "seed": 44
+    },
+    {
+        "experiment_name": "circular_10_s003",
+        "n_networks": 10,
+        "v_topology": 3,
+        "n_var_network": 6,
+        "n_input_variables": 2,
+        "n_output_variables": 2,
+        "connectivity_density": 0.5,
+        "coupling_type": "OR",
+        "seed": 45
+    },
+    {
+        "experiment_name": "circular_10_s004",
+        "n_networks": 10,
+        "v_topology": 3,
+        "n_var_network": 6,
+        "n_input_variables": 2,
+        "n_output_variables": 2,
+        "connectivity_density": 0.5,
+        "coupling_type": "OR",
+        "seed": 46
+    },
+    {
+        "experiment_name": "circular_10_s005",
+        "n_networks": 10,
+        "v_topology": 3,
+        "n_var_network": 6,
+        "n_input_variables": 2,
+        "n_output_variables": 2,
+        "connectivity_density": 0.5,
+        "coupling_type": "OR",
+        "seed": 47
+    },
+    {
+        "experiment_name": "circular_10_s006",
+        "n_networks": 10,
+        "v_topology": 3,
+        "n_var_network": 6,
+        "n_input_variables": 2,
+        "n_output_variables": 2,
+        "connectivity_density": 0.5,
+        "coupling_type": "OR",
+        "seed": 48
+    },
+    {
+        "experiment_name": "circular_10_s007",
+        "n_networks": 10,
+        "v_topology": 3,
+        "n_var_network": 6,
+        "n_input_variables": 2,
+        "n_output_variables": 2,
+        "connectivity_density": 0.5,
+        "coupling_type": "OR",
+        "seed": 49
+    },
+    {
+        "experiment_name": "circular_10_s008",
+        "n_networks": 10,
+        "v_topology": 3,
+        "n_var_network": 6,
+        "n_input_variables": 2,
+        "n_output_variables": 2,
+        "connectivity_density": 0.5,
+        "coupling_type": "OR",
+        "seed": 50
+    },
+    {
+        "experiment_name": "circular_10_s009",
+        "n_networks": 10,
+        "v_topology": 3,
+        "n_var_network": 6,
+        "n_input_variables": 2,
+        "n_output_variables": 2,
+        "connectivity_density": 0.5,
+        "coupling_type": "OR",
+        "seed": 51
+    },
+    {
+        "experiment_name": "circular_10_s010",
+        "n_networks": 10,
+        "v_topology": 3,
+        "n_var_network": 6,
+        "n_input_variables": 2,
+        "n_output_variables": 2,
+        "connectivity_density": 0.5,
+        "coupling_type": "OR",
+        "seed": 52
+    }
+]
