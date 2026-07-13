@@ -21,7 +21,7 @@ public:
   std::vector<std::shared_ptr<DirectedEdge>> l_directed_edges;
   std::map<int, std::tuple<int, int, int>> d_local_attractors;
   std::map<int, std::shared_ptr<LocalAttractor>> d_local_attractors_ptr;
-  std::map<int, std::vector<int>> d_attractor_fields;
+  std::map<size_t, std::vector<int>> d_attractor_fields;
   std::vector<std::shared_ptr<GlobalScene>> l_global_scenes;
   std::map<std::string, int> d_global_scenes_count;
   std::shared_ptr<GlobalTopology> o_global_topology;
@@ -90,9 +90,9 @@ public:
   std::shared_ptr<LocalAttractor> get_local_attractor_by_index(int i_attractor);
   std::shared_ptr<LocalNetwork> get_network_by_index(int index);
 
-  int get_n_local_attractors() const;
-  int get_n_pair_attractors() const;
-  int get_n_attractor_fields() const;
+  size_t get_n_local_attractors() const;
+  size_t get_n_pair_attractors() const;
+  size_t get_n_attractor_fields() const;
   int get_n_local_variables() const;
 
   void show_local_attractors() const;

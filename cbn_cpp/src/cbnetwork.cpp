@@ -1032,14 +1032,23 @@ CBN::find_input_edges_by_network_index(
   return result;
 }
 
-int CBN::get_n_local_attractors() const {
-  int count = 0;
+size_t CBN::get_n_local_attractors() const {
+  size_t count = 0;
   for (const auto &net : l_local_networks)
     count += net->attractor_count;
   return count;
 }
 
-int CBN::get_n_attractor_fields() const { return d_attractor_fields.size(); }
+size_t CBN::get_n_pair_attractors() const {
+  size_t count = 0;
+  for (const auto &edge : l_directed_edges) {
+    count += edge->d_comp_pairs_attractors_by_value[0].size() +
+             edge->d_comp_pairs_attractors_by_value[1].size();
+  }
+  return count;
+}
+
+size_t CBN::get_n_attractor_fields() const { return d_attractor_fields.size(); }
 
 void CBN::_assign_global_indices_to_attractors() {
   int g_index = 1;
