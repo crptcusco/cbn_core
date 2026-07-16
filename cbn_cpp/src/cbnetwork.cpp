@@ -239,7 +239,7 @@ void CBN::mount_attractor_fields() { mount_stable_attractor_fields(); }
 void CBN::find_local_attractors_sequential() {
   for (auto &net : l_local_networks) {
     auto scenes = _generate_local_scenes(net);
-    LocalNetwork::find_local_attractors_brute_force(net, scenes);
+    LocalNetwork::find_local_attractors_duvrova(net, scenes);
     process_kind_signal(net);
   }
   _assign_global_indices_to_attractors();
@@ -286,7 +286,7 @@ void CBN::find_local_attractors_parallel_with_weights() {
     if (tid < (int)buckets.size()) {
       for (auto &net : buckets[tid]) {
         auto scenes = _generate_local_scenes(net);
-        LocalNetwork::find_local_attractors_brute_force(net, scenes);
+        LocalNetwork::find_local_attractors_duvrova(net, scenes);
         process_kind_signal(net);
       }
     }

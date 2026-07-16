@@ -104,8 +104,8 @@ def execute_python_profile(cbn: CBN, profile: str) -> Tuple[float, float, float,
 
     return t_p1, t_p2, t_p3, total_t, n_attr, n_pairs, n_fields
 
-def execute_cpp_profile(topo_path: Path, exp_dir: Path) -> Tuple[float, float, float, float, int, int, int]:
-    """Ejecuta el motor en C++ mediante subprocess y extrae las métricas del JSON de salida."""
+def execute_cpp_profiles(topo_path: Path, exp_dir: Path) -> Dict[str, Tuple[float, float, float, float, int, int, int]]:
+    """Ejecuta C++ una vez y extrae las métricas de sus tres estrategias."""
     if not CPP_BINARY.exists():
         raise FileNotFoundError(f"C++ binary not found at: {CPP_BINARY}. Please build it first using 'make build-cpp'.")
 
@@ -122,51 +122,38 @@ def execute_cpp_profile(topo_path: Path, exp_dir: Path) -> Tuple[float, float, f
     if result.returncode != 0:
         raise RuntimeError(f"C++ engine crashed with return code {result.returncode}.\nStderr: {result.stderr}\nStdout: {result.stdout}")
 
-    # Buscar archivo *dynamics*.json en exp_dir
-    dynamics_files = list(exp_dir.glob("*dynamics*.json"))
-    if not dynamics_files:
-        raise FileNotFoundError(f"No dynamics JSON output file found in {exp_dir} after C++ execution.")
+    strategy_files = {
+        "cpp_seq": "Traditional",
+        "cpp_par": "SimpleParallel",
+        "cpp_adv": "AdvancedParallel",
+    }
+    metrics = {}
+    for profile, strategy in strategy_files.items():
+        cpp_dyn_file = exp_dir / f"cbn_sample_1_{strategy}_dynamics.json"
+        if not cpp_dyn_file.exists():
+            raise FileNotFoundError(
+                f"C++ dynamics output for {strategy} not found: {cpp_dyn_file}"
+            )
 
-    # Elegimos preferiblemente Traditional, AdvancedParallel, o el primero disponible
-    cpp_dyn_file = None
-    for f in dynamics_files:
-        if "Traditional" in f.name:
-            cpp_dyn_file = f
-            break
-    if not cpp_dyn_file:
-        for f in dynamics_files:
-            if "AdvancedParallel" in f.name:
-                cpp_dyn_file = f
-                break
-    if not cpp_dyn_file:
-        cpp_dyn_file = dynamics_files[0]
+        logger.info("C++ dynamics output file found for %s: %s", strategy, cpp_dyn_file)
+        with open(cpp_dyn_file, "r") as f:
+            json_data = json.load(f)
 
-    logger.info(f"C++ dynamics output file found: {cpp_dyn_file}")
+        perf_data = json_data.get("performance", {})
+        t_p1 = perf_data.get("step_1_ms", 0.0) / 1000.0
+        t_p2 = perf_data.get("step_2_ms", 0.0) / 1000.0
+        t_p3 = perf_data.get("step_3_ms", 0.0) / 1000.0
+        total_t = perf_data.get("total_ms", 0.0) / 1000.0
 
-    with open(cpp_dyn_file, "r") as f:
-        json_data = json.load(f)
+        step1 = json_data.get("pipeline_execution", {}).get("step_1_local_attractors", [])
+        n_attractors = sum(len(item.get("attractors", [])) for item in step1)
+        step2 = json_data.get("pipeline_execution", {}).get("step_2_compatible_pairs", [])
+        n_pairs = len(step2)
+        step3 = json_data.get("pipeline_execution", {}).get("step_3_global_fields", {})
+        n_fields = len(step3.get("attractor_fields", []))
+        metrics[profile] = (t_p1, t_p2, t_p3, total_t, n_attractors, n_pairs, n_fields)
 
-    # Extraer tiempos (convertir de ms a segundos)
-    perf_data = json_data.get("performance", {})
-    t_p1 = perf_data.get("step_1_ms", 0.0) / 1000.0
-    t_p2 = perf_data.get("step_2_ms", 0.0) / 1000.0
-    t_p3 = perf_data.get("step_3_ms", 0.0) / 1000.0
-    total_t = perf_data.get("total_ms", 0.0) / 1000.0
-
-    # Extraer conteos de atractores
-    # n_attractors: suma de longitud de "attractors" en cada "step_1_local_attractors"
-    step1 = json_data.get("pipeline_execution", {}).get("step_1_local_attractors", [])
-    n_attractors = sum(len(item.get("attractors", [])) for item in step1)
-
-    # n_pairs: longitud de "step_2_compatible_pairs"
-    step2 = json_data.get("pipeline_execution", {}).get("step_2_compatible_pairs", [])
-    n_pairs = len(step2)
-
-    # n_fields: longitud de "attractor_fields" en "step_3_global_fields"
-    step3 = json_data.get("pipeline_execution", {}).get("step_3_global_fields", {})
-    n_fields = len(step3.get("attractor_fields", []))
-
-    return t_p1, t_p2, t_p3, total_t, n_attractors, n_pairs, n_fields
+    return metrics
 
 def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, output_base: Path, csv_path: Path, fieldnames: List[str]):
     """Genera la topología base, la guarda, y la procesa con los 4 métodos, escribiendo inmediatamente al CSV."""
@@ -181,25 +168,21 @@ def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, o
     topo_path = exp_dir / "topology.json"
     cbn_base.to_json(str(topo_path))
 
-    # 2. Ejecutar los 4 perfiles sobre copias idénticas
-    profiles = ["seq", "par", "weights", "cpp"]
+    # 2. Ejecutar los perfiles Python sobre copias idénticas.
+    profiles = ["seq", "par", "weights"]
 
     for profile in profiles:
         logger.info(f"[{experiment_name}] Ejecutando perfil: {profile.upper()}...")
         
         try:
-            if profile in ["seq", "par", "weights"]:
-                # Cargar red limpia sin resolver
-                cbn_instance = load_identical_cbn(topo_path)
-                # Procesar y medir tiempos
-                tp1, tp2, tp3, total, n_attr, n_pairs, n_fields = execute_python_profile(cbn_instance, profile)
+            # Cargar red limpia sin resolver
+            cbn_instance = load_identical_cbn(topo_path)
+            # Procesar y medir tiempos
+            tp1, tp2, tp3, total, n_attr, n_pairs, n_fields = execute_python_profile(cbn_instance, profile)
 
-                # Guardar JSON específico de Python para depuración
-                with open(exp_dir / f"fields_{profile}.json", "w") as f:
-                    json.dump(cbn_instance.to_json_fields(), f, indent=4)
-            else:
-                # Perfil de C++
-                tp1, tp2, tp3, total, n_attr, n_pairs, n_fields = execute_cpp_profile(topo_path, exp_dir)
+            # Guardar JSON específico de Python para depuración
+            with open(exp_dir / f"fields_{profile}.json", "w") as f:
+                json.dump(cbn_instance.to_json_fields(), f, indent=4)
 
             row = {
                 "sample": sample_id,
@@ -238,6 +221,23 @@ def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, o
             writer.writerow(row_formatted)
 
         logger.info(f"[{experiment_name}] Perfil {profile.upper()} completado y persistido en CSV.")
+
+    # El ejecutable C++ corre sus tres estrategias en una sola invocación.
+    try:
+        cpp_metrics = execute_cpp_profiles(topo_path, exp_dir)
+        for profile, values in cpp_metrics.items():
+            tp1, tp2, tp3, total, n_attr, n_pairs, n_fields = values
+            row = {
+                "sample": sample_id, "n_nets": n_nets, "perfil": profile,
+                "t_p1": tp1, "t_p2": tp2, "t_p3": tp3, "total_t": total,
+                "n_attractors": n_attr, "n_pairs": n_pairs, "n_fields": n_fields,
+            }
+            with open(csv_path, 'a', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writerow({k: (f"{v:.6f}" if isinstance(v, float) else v) for k, v in row.items()})
+            logger.info(f"[{experiment_name}] Perfil {profile.upper()} completado y persistido en CSV.")
+    except Exception as e:
+        logger.error(f"[{experiment_name}] Error en perfiles C++: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="CBN All-in-One Hybrid Benchmark Processor")

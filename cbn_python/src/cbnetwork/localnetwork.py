@@ -80,11 +80,6 @@ class LocalNetwork:
             if var not in self.total_variables:
                 self.total_variables.append(var)
 
-        # Add any descriptive function variables that might be missing (e.g. output signals)
-        for var_model in self.descriptive_function_variables:
-            if var_model.index not in self.total_variables:
-                self.total_variables.append(var_model.index)
-
         # Calculate the number of total variables
         self.total_variables_count = len(self.total_variables)
 
@@ -194,7 +189,13 @@ class LocalNetwork:
         )
 
         for transition in range(1, n_transitions):
+            # Only internal variables define the transition system of this
+            # local network.  Coupling variables attached to an outgoing edge
+            # encode output relations and are evaluated later, when compatible
+            # attractor pairs are built.
             for variable_model in local_network.descriptive_function_variables:
+                if variable_model.index not in local_network.internal_variables:
+                    continue
                 v_t = local_network.cnf_variables_map[
                     f"{variable_model.index}_{transition}"
                 ]
@@ -374,19 +375,18 @@ class LocalNetwork:
         scene_index = 1
         network_attractor_count = 0
 
-        # Ensure total_variables is set for consistent state representation
-        # It MUST be sorted to ensure scientific parity with C++ and Duvrova
-        all_vars = set(local_network.internal_variables)
+        # A local state contains only internal variables plus the fixed inputs of
+        # the current scene.  Coupling variables defined by this network are
+        # output relations, not additional local state variables.
+        local_network.total_variables = list(local_network.internal_variables)
         for var in local_network.external_variables:
-            all_vars.add(var)
-        for var_model in local_network.descriptive_function_variables:
-            all_vars.add(var_model.index)
-        local_network.total_variables = sorted(list(all_vars))
+            if var not in local_network.total_variables:
+                local_network.total_variables.append(var)
         local_network.total_variables_count = len(local_network.total_variables)
 
         total_vars = local_network.total_variables
         external_vars = local_network.external_variables
-        evolving_vars = [v for v in total_vars if v not in external_vars]
+        evolving_vars = list(local_network.internal_variables)
         num_evolving = len(evolving_vars)
 
         for scene_str in scenes_to_process:

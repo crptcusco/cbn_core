@@ -40,6 +40,11 @@ public:
         std::shared_ptr<LocalNetwork> local_network,
         const std::vector<std::string>& local_scenes_strings = {});
 
+    // SAT-based attractor search following Duvrova's increasing-path method.
+    static std::shared_ptr<LocalNetwork> find_local_attractors_duvrova(
+        std::shared_ptr<LocalNetwork> local_network,
+        const std::vector<std::string>& local_scenes_strings = {});
+
 };
 
 } // namespace cbnetwork

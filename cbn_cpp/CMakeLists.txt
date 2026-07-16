@@ -5,13 +5,15 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(OpenMP REQUIRED)
+find_path(MINISAT_INCLUDE_DIR minisat/core/Solver.h REQUIRED)
+find_library(MINISAT_LIBRARY minisat REQUIRED)
 
-include_directories(include)
+include_directories(include ${MINISAT_INCLUDE_DIR})
 
 file(GLOB SOURCES "src/*.cpp")
 
 add_library(cbn_core ${SOURCES})
-target_link_libraries(cbn_core PUBLIC OpenMP::OpenMP_CXX)
+target_link_libraries(cbn_core PUBLIC OpenMP::OpenMP_CXX ${MINISAT_LIBRARY})
 
 add_executable(verify_cbn examples/verify_cbn.cpp)
 target_link_libraries(verify_cbn cbn_core OpenMP::OpenMP_CXX)
