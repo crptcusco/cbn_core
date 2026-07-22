@@ -45,7 +45,7 @@ ExperimentResults TraditionalExperiment::run(std::shared_ptr<CBN> cbn) {
   res.p1_ms = duration<double, std::milli>(end1 - start1).count();
 
   auto start2 = high_resolution_clock::now();
-  cbn->find_compatible_pairs(); // Will use sequential path if OMP=1
+  cbn->find_compatible_pairs_sequential(); // Strictly sequential execution
   auto end2 = high_resolution_clock::now();
   res.p2_ms = duration<double, std::milli>(end2 - start2).count();
 

@@ -1,72 +1,37 @@
-# Coupled Boolean Network Library (cbnetwork)
+# Coupled Boolean Network Library (`cbnetwork`)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/release/python-380/)
+[![C++17](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
 
-`cbnetwork` es una librería en Python para la creación, simulación y análisis de Redes Booleanas Acopladas (CBNs). Desarrollada como parte de una investigación académica en Ciencias de la Computación, esta herramienta provee los recursos necesarios para modelar y entender sistemas dinámicos complejos que pueden ser representados como redes booleanas interconectadas.
+`cbnetwork` is a high-performance hybrid framework (Python + C++) designed for the creation, simulation, benchmarking, and analysis of **Coupled Boolean Networks (CBNs)**. Developed as part of academic research in Computer Science, it combines the flexibility of Python orchestration with an optimized C++ computing core to ensure scalability and scientific rigor.
 
-La librería permite una definición flexible de topologías de red, dinámicas locales y funciones de acoplamiento, convirtiéndola en una herramienta poderosa para investigadores en biología computacional, teoría de sistemas e inteligencia artificial. El análisis de atractores se realiza utilizando un solver SAT, lo que permite una búsqueda eficiente en el espacio de estados.
+The library enables advanced definition of network topologies, local dynamics, and coupling functions, providing a robust environment for researchers in complex systems, computational biology, and artificial intelligence.
 
-## Fundamento Teórico
+---
 
-Las Redes Booleanas Acopladas (CBNs) son un formalismo de modelado para describir sistemas compuestos por subsistemas interconectados, donde cada subsistema es una red booleana. El estado de cada variable en una red local es determinado por una función booleana que depende del estado de otras variables dentro de la misma red y de las señales recibidas desde redes vecinas.
+## 🏛️ Theoretical Background
 
-El objetivo principal de esta librería es identificar los **atractores** del sistema global. Un atractor puede ser un estado estable (atractor puntual) o un ciclo de estados (atractor cíclico) hacia el cual el sistema tiende a evolucionar. En el contexto de las CBNs, estos atractores globales son denominados **Campos de Atractores (Attractor Fields)**, que representan las configuraciones estables del sistema completo.
+Coupled Boolean Networks (CBNs) formalize systems composed of interconnected subsystems, where each node is an autonomous Boolean network. The state evolves according to local functions and dynamic signals coming from connected neighbors.
 
-Esta librería utiliza un enfoque basado en SAT (problema de satisfacibilidad booleana) para encontrar de manera eficiente los atractores del sistema global.
+*   **Attractor Fields:** The core objective is to identify stable configurations of the global system (point or cyclic attractors).
+*   **Hybrid Architecture:** Intensive state-search and validation tasks are delegated to a native C++ core, dramatically reducing memory footprint (RSS) and execution time compared to purely interpreted implementations.
 
-## Instalación
+---
 
-Para utilizar la librería, clona este repositorio e instala las dependencias utilizando `pip`:
+## ⚙️ System Requirements
+
+*   C++17 compatible compiler (`g++` or `clang`)
+*   `CMake` (version 3.12 or higher)
+*   Python 3.8 or higher
+
+---
+
+## 📦 Installation
+
+Clone the repository and install the base Python dependencies:
 
 ```bash
-git clone https://github.com/j-one-k/cbnetwork.git
-cd cbnetwork
+git clone [https://github.com/crptcusco/cbn_core.git](https://github.com/crptcusco/cbn_core.git)
+cd cbn_core
 pip install -r requirements.txt
-```
-
-> **Nota sobre Dependencias Opcionales:** Si deseas utilizar el solver basado en SAT (método `find_attractors_duvrova`), es necesario tener instalado el binario `minisat` en tu sistema (ej. `sudo apt-get install minisat` en sistemas basados en Debian). Para la mayoría de los casos de uso estándar y benchmarks, el método de fuerza bruta (`find_attractors_brute_force`) es suficiente y no requiere dependencias externas adicionales.
-
-## Guía de Inicio Rápido
-
-A continuación, se muestra un ejemplo mínimo de cómo crear y analizar una Red Booleana Acoplada simple:
-
-```python
-from cbnetwork.cbnetwork import CBN
-from cbnetwork.coupling import OrCoupling, AndCoupling
-
-# 1. Definir la topología y parámetros de la red
-# Se creará un sistema de 3 redes locales totalmente conectadas,
-# cada una con 2 variables internas.
-cbn = CBN.cbn_generator(
-    v_topology=1,  # 1 = Grafo Completo
-    n_networks=3,
-    n_var_network=2,
-    n_input_variables=1,
-    n_output_variables=1,
-    coupling_strategy=OrCoupling()  # Estrategia de acoplamiento (puede ser OrCoupling, AndCoupling, etc.)
-)
-
-# 2. Encontrar los atractores locales para cada red bajo todas las señales externas posibles
-# Este es el paso computacionalmente más intensivo.
-cbn.find_local_attractors_parallel()
-
-# 3. Encontrar los pares de atractores compatibles entre redes conectadas
-cbn.find_compatible_pairs_parallel()
-
-# 4. Ensamblar los pares compatibles para encontrar los atractores globales (Campos de Atractores)
-cbn.mount_stable_attractor_fields()
-
-# 5. Mostrar los resultados
-print(f"Número de campos de atractores encontrados: {cbn.get_n_attractor_fields()}")
-cbn.show_stable_attractor_fields()
-
-```
-
-## Citando este trabajo
-
-Si utilizas esta librería en una investigación publicada, por favor cita el trabajo original donde fue desarrollada. (Detalles de la citación por añadir).
-
-## Licencia
-
-Este proyecto está bajo la Licencia MIT. Consulta el archivo `LICENSE` para más detalles.

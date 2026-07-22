@@ -211,10 +211,7 @@ void CBN::find_local_attractors() {
 #endif
 }
 
-void CBN::find_compatible_pairs() {
-#ifdef _OPENMP
-  find_compatible_pairs_parallel();
-#else
+void CBN::find_compatible_pairs_sequential() {
   for (auto &edge : l_directed_edges) {
     for (int val : {0, 1}) {
       edge->d_comp_pairs_attractors_by_value[val].clear();
@@ -231,6 +228,13 @@ void CBN::find_compatible_pairs() {
       }
     }
   }
+}
+
+void CBN::find_compatible_pairs() {
+#ifdef _OPENMP
+  find_compatible_pairs_parallel_with_weights();
+#else
+  find_compatible_pairs_sequential();
 #endif
 }
 
@@ -247,7 +251,19 @@ void CBN::find_local_attractors_sequential() {
 }
 
 void CBN::find_local_attractors_parallel() {
-  find_local_attractors_parallel_with_weights();
+  find_local_attractors_parallel_simple();
+}
+
+void CBN::find_local_attractors_parallel_simple() {
+#pragma omp parallel for schedule(dynamic)
+  for (int i = 0; i < (int)l_local_networks.size(); ++i) {
+    auto &net = l_local_networks[i];
+    auto scenes = _generate_local_scenes(net);
+    LocalNetwork::find_local_attractors_duvrova(net, scenes);
+    process_kind_signal(net);
+  }
+  _assign_global_indices_to_attractors();
+  generate_attractor_dictionary();
 }
 
 void CBN::find_local_attractors_parallel_with_weights() {
@@ -570,8 +586,8 @@ CBN::cbn_generator(int v_topology, int n_networks, int n_var_network,
                    int n_max_of_clauses, int n_max_of_literals, int n_edges,
                    std::shared_ptr<CouplingStrategy> coupling_strategy) {
 
-  auto o_topo = GlobalTopology::generate_sample_topology(
-      v_topology, n_networks, n_edges);
+  auto o_topo =
+      GlobalTopology::generate_sample_topology(v_topology, n_networks, n_edges);
   LocalNetworkTemplate o_template(n_var_network, n_input_variables,
                                   n_output_variables, n_max_of_clauses,
                                   n_max_of_literals, v_topology);

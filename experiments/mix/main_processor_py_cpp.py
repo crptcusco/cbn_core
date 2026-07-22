@@ -157,7 +157,7 @@ def execute_cpp_profiles(topo_path: Path, exp_dir: Path) -> Dict[str, Tuple[floa
 
 def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, output_base: Path, csv_path: Path, fieldnames: List[str]):
     """Genera la topología base, la guarda, y la procesa con los 4 métodos, escribiendo inmediatamente al CSV."""
-    exp_dir = output_base / experiment_name
+    exp_dir = output_base / "data" / experiment_name
     exp_dir.mkdir(parents=True, exist_ok=True)
     
     n_nets = config.get("n_networks", 0)
