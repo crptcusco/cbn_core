@@ -16,6 +16,7 @@ cd /scratch/deephash/carlos.tovar/cbn_core/experiments/mix
 
 # 2. Activar entorno virtual
 source ../../venv/bin/activate
+module load minisat/2.2.0_sequana
 
 # 3. Ejecutar el procesador con el JSON problemático (o el que necesites)
 python3 main_processor_py_cpp.py --config aleatory_fixed.json
