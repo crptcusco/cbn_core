@@ -1,0 +1,6 @@
+python main_gerador.py --output circular.json --name circular_10 --networks 10 --topology 3 --vars 6 --inputs 2 --outputs 2 --density 0.5 --coupling OR --seed 42 --samples 1000
+
+
+python3 main_processor_py_cpp.py --config circular.json
+
+
