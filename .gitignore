@@ -126,7 +126,9 @@ venv.bak/
 # --- PROYECTO ESPECIFICO ---
 outputs/
 *.pkl
+# Ignorar todos los CSVs pero permitir este en particular
 *.csv
+!benchmark_granular_workflow.csv
 *.log
 
 # Bloquear directorios de compilación nativos de C++
