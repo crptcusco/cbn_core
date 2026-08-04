@@ -7,90 +7,167 @@ import time
 import traceback
 import csv
 import subprocess
+import tracemalloc  # <--- NUEVA IMPORTACIÓN
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+import resource
 
 # Búsqueda dinámica de la raíz del proyecto (cbn_core)
+
 current_dir = Path(__file__).resolve().parent
+
 root_dir = current_dir
+
 while not (root_dir / "cbn_python").exists() and root_dir.parent != root_dir:
+
     root_dir = root_dir.parent
+
+
 
 sys.path.append(str(root_dir / "cbn_python" / "src"))
 
+
+
 from cbnetwork.cbnetwork import CBN
 
+
+
 try:
+
     from cbnetwork.utils.logging_config import setup_logging
+
     setup_logging()
+
 except ImportError:
+
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
+
 
 logger = logging.getLogger(__name__)
 
+
+
 # Definir la ruta global al binario de C++ (CPP_BINARY)
+
 CPP_BINARY = root_dir / "cbn_cpp" / "build" / "scientific_benchmarking"
 
+
+
 def validate_config(config: Dict[str, Any]) -> bool:
+
     """Basic validation of the configuration object."""
+
     required_keys = ["n_networks", "v_topology", "n_var_network"]
+
     for key in required_keys:
+
         if key not in config:
+
             logger.error(f"Missing required configuration key: {key}")
+
             return False
+
     return True
 
+
+
 def load_identical_cbn(topology_path: Path) -> CBN:
+
     """Helper para cargar una CBN limpia desde el JSON y evitar contaminación de caché."""
+
     if hasattr(CBN, 'from_json'):
+
         return CBN.from_json(str(topology_path))
+
     elif hasattr(CBN, 'load_json'):
+
         return CBN.load_json(str(topology_path))
+
     else:
+
         return CBN(str(topology_path))
 
 def execute_python_profile(cbn: CBN, profile: str) -> Tuple[float, float, float, float, int, int, int]:
-    """Ejecuta los métodos exactos de Python correspondientes al perfil y retorna sus métricas."""
+    """Ejecuta los métodos exactos de Python correspondientes al perfil y retorna sus métricas, incluyendo log de memoria."""
     t_p1 = t_p2 = t_p3 = 0.0
 
+    logger.info(f"--- Iniciando perfilado de memoria tracemalloc para: {profile} ---")
+    
     if profile == "seq":
+        tracemalloc.start()
         t0 = time.perf_counter()
         cbn.find_attractors_duvrova()
         t_p1 = time.perf_counter() - t0
+        current, peak1 = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        logger.info(f"[{profile} - P1] find_attractors_duvrova -> Memoria Pico: {peak1 / 10**6:.2f} MB")
 
+        tracemalloc.start()
         t0 = time.perf_counter()
         cbn.find_compatible_pairs()
         t_p2 = time.perf_counter() - t0
+        current, peak2 = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        logger.info(f"[{profile} - P2] find_compatible_pairs -> Memoria Pico: {peak2 / 10**6:.2f} MB")
 
+        tracemalloc.start()
         t0 = time.perf_counter()
         cbn.mount_stable_attractor_fields()
         t_p3 = time.perf_counter() - t0
+        current, peak3 = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        logger.info(f"[{profile} - P3] mount_stable_attractor_fields -> Memoria Pico: {peak3 / 10**6:.2f} MB")
 
     elif profile == "par":
+        tracemalloc.start()
         t0 = time.perf_counter()
         cbn.find_local_attractors_parallel()
         t_p1 = time.perf_counter() - t0
+        current, peak1 = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        logger.info(f"[{profile} - P1] find_local_attractors_parallel -> Memoria Pico: {peak1 / 10**6:.2f} MB")
 
+        tracemalloc.start()
         t0 = time.perf_counter()
         cbn.find_compatible_pairs_parallel()
         t_p2 = time.perf_counter() - t0
+        current, peak2 = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        logger.info(f"[{profile} - P2] find_compatible_pairs_parallel -> Memoria Pico: {peak2 / 10**6:.2f} MB")
 
+        tracemalloc.start()
         t0 = time.perf_counter()
         cbn.mount_stable_attractor_fields_parallel()
         t_p3 = time.perf_counter() - t0
+        current, peak3 = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        logger.info(f"[{profile} - P3] mount_stable_attractor_fields_parallel -> Memoria Pico: {peak3 / 10**6:.2f} MB")
 
     elif profile == "weights":
+        tracemalloc.start()
         t0 = time.perf_counter()
         cbn.find_local_attractors_parallel_with_weights()
         t_p1 = time.perf_counter() - t0
+        current, peak1 = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        logger.info(f"[{profile} - P1] find_local_attractors_parallel_with_weights -> Memoria Pico: {peak1 / 10**6:.2f} MB")
 
+        tracemalloc.start()
         t0 = time.perf_counter()
         cbn.find_compatible_pairs_parallel_with_weights()
         t_p2 = time.perf_counter() - t0
+        current, peak2 = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        logger.info(f"[{profile} - P2] find_compatible_pairs_parallel_with_weights -> Memoria Pico: {peak2 / 10**6:.2f} MB")
 
+        tracemalloc.start()
         t0 = time.perf_counter()
         cbn.mount_stable_attractor_fields_parallel_chunks()
         t_p3 = time.perf_counter() - t0
+        current, peak3 = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        logger.info(f"[{profile} - P3] mount_stable_attractor_fields_parallel_chunks -> Memoria Pico: {peak3 / 10**6:.2f} MB")
 
     else:
         raise ValueError(f"Unknown python profile: {profile}")
@@ -104,6 +181,8 @@ def execute_python_profile(cbn: CBN, profile: str) -> Tuple[float, float, float,
 
     return t_p1, t_p2, t_p3, total_t, n_attr, n_pairs, n_fields
 
+# ... [El resto del archivo se mantiene exactamente igual a partir de def execute_cpp_profiles] ...
+
 def execute_cpp_profiles(topo_path: Path, exp_dir: Path) -> Dict[str, Tuple[float, float, float, float, int, int, int]]:
     """Ejecuta C++ una vez y extrae las métricas de sus tres estrategias."""
     if not CPP_BINARY.exists():
@@ -116,9 +195,18 @@ def execute_cpp_profiles(topo_path: Path, exp_dir: Path) -> Dict[str, Tuple[floa
         "--input", str(topo_path),
         "--dir", str(exp_dir)
     ]
+
     logger.info(f"Invocando C++ con comando: {' '.join(cmd)}")
 
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    
+    # --- NUEVO: Capturar el pico máximo de RAM del proceso C++ en Linux ---
+    rusage_children = resource.getrusage(resource.RUSAGE_CHILDREN)
+    # En Linux, ru_maxrss se reporta en Kilobytes (KB), dividimos por 1024 para MB
+    max_rss_mb = rusage_children.ru_maxrss / 1024.0
+    logger.info(f"[C++ Engine] Memoria Pico (Max RSS del subproceso): {max_rss_mb:.2f} MB")
+    # ----------------------------------------------------------------------
+
     if result.returncode != 0:
         raise RuntimeError(f"C++ engine crashed with return code {result.returncode}.\nStderr: {result.stderr}\nStdout: {result.stdout}")
 
