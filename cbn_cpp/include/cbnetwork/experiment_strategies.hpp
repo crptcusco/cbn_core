@@ -21,15 +21,20 @@ struct ExperimentResults {
     double p3_ms; // Global Attractor Fields
     double total_ms;
     long max_rss_kb;
+    double p1_mem_kb;
+    double p2_mem_kb;
+    double p3_mem_kb;
+    double total_mem_kb;
     size_t global_attractors_count;
     bool success;
 
     void print() const {
         std::cout << "Strategy: " << strategy_name << std::endl;
-        std::cout << "  - Phase 1 (Local):  " << p1_ms << " ms" << std::endl;
-        std::cout << "  - Phase 2 (Pairs):  " << p2_ms << " ms" << std::endl;
-        std::cout << "  - Phase 3 (Fields): " << p3_ms << " ms" << std::endl;
+        std::cout << "  - Phase 1 (Local):  " << p1_ms << " ms (" << p1_mem_kb << " KB)" << std::endl;
+        std::cout << "  - Phase 2 (Pairs):  " << p2_ms << " ms (" << p2_mem_kb << " KB)" << std::endl;
+        std::cout << "  - Phase 3 (Fields): " << p3_ms << " ms (" << p3_mem_kb << " KB)" << std::endl;
         std::cout << "  - Max RSS:          " << max_rss_kb << " KB" << std::endl;
+        std::cout << "  - Total Heap Mem:   " << total_mem_kb << " KB" << std::endl;
         std::cout << "  - Total Fields:     " << global_attractors_count << std::endl;
     }
 };
