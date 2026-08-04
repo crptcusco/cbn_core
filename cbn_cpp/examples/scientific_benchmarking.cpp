@@ -158,7 +158,8 @@ void export_full_trace_json(int sample_id, const std::string &strategy_name, std
       {"step_1_ms", res.p1_ms},
       {"step_2_ms", res.p2_ms},
       {"step_3_ms", res.p3_ms},
-      {"total_ms", res.total_ms}
+      {"total_ms", res.total_ms},
+      {"max_rss_kb", (double)res.max_rss_kb}
   };
 
   std::ofstream out(filepath);

@@ -88,9 +88,10 @@ def load_identical_cbn(topology_path: Path) -> CBN:
 
         return CBN(str(topology_path))
 
-def execute_python_profile(cbn: CBN, profile: str) -> Tuple[float, float, float, float, int, int, int]:
+def execute_python_profile(cbn: CBN, profile: str) -> Tuple[float, float, float, float, float, float, float, float, int, int, int]:
     """Ejecuta los métodos exactos de Python correspondientes al perfil y retorna sus métricas, incluyendo log de memoria."""
     t_p1 = t_p2 = t_p3 = 0.0
+    peak1 = peak2 = peak3 = 0.0
 
     logger.info(f"--- Iniciando perfilado de memoria tracemalloc para: {profile} ---")
     
@@ -179,11 +180,17 @@ def execute_python_profile(cbn: CBN, profile: str) -> Tuple[float, float, float,
     n_pairs = cbn.get_n_pair_attractors()
     n_fields = cbn.get_n_attractor_fields()
 
-    return t_p1, t_p2, t_p3, total_t, n_attr, n_pairs, n_fields
+    # Convertir bytes a KB
+    mem_p1_kb = peak1 / 1024.0
+    mem_p2_kb = peak2 / 1024.0
+    mem_p3_kb = peak3 / 1024.0
+    mem_total_kb = max(peak1, peak2, peak3) / 1024.0
+
+    return t_p1, t_p2, t_p3, total_t, mem_p1_kb, mem_p2_kb, mem_p3_kb, mem_total_kb, n_attr, n_pairs, n_fields
 
 # ... [El resto del archivo se mantiene exactamente igual a partir de def execute_cpp_profiles] ...
 
-def execute_cpp_profiles(topo_path: Path, exp_dir: Path) -> Dict[str, Tuple[float, float, float, float, int, int, int]]:
+def execute_cpp_profiles(topo_path: Path, exp_dir: Path) -> Dict[str, Tuple[float, float, float, float, float, float, float, float, int, int, int]]:
     """Ejecuta C++ una vez y extrae las métricas de sus tres estrategias."""
     if not CPP_BINARY.exists():
         raise FileNotFoundError(f"C++ binary not found at: {CPP_BINARY}. Please build it first using 'make build-cpp'.")
@@ -233,13 +240,18 @@ def execute_cpp_profiles(topo_path: Path, exp_dir: Path) -> Dict[str, Tuple[floa
         t_p3 = perf_data.get("step_3_ms", 0.0) / 1000.0
         total_t = perf_data.get("total_ms", 0.0) / 1000.0
 
+        # Extraer max_rss_kb de la performance de C++ (con fallback a ru_maxrss)
+        max_rss_kb = perf_data.get("max_rss_kb", 0.0)
+        if max_rss_kb <= 0.0:
+            max_rss_kb = float(rusage_children.ru_maxrss)
+
         step1 = json_data.get("pipeline_execution", {}).get("step_1_local_attractors", [])
         n_attractors = sum(len(item.get("attractors", [])) for item in step1)
         step2 = json_data.get("pipeline_execution", {}).get("step_2_compatible_pairs", [])
         n_pairs = len(step2)
         step3 = json_data.get("pipeline_execution", {}).get("step_3_global_fields", {})
         n_fields = len(step3.get("attractor_fields", []))
-        metrics[profile] = (t_p1, t_p2, t_p3, total_t, n_attractors, n_pairs, n_fields)
+        metrics[profile] = (t_p1, t_p2, t_p3, total_t, 0.0, 0.0, 0.0, max_rss_kb, n_attractors, n_pairs, n_fields)
 
     return metrics
 
@@ -265,8 +277,8 @@ def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, o
         try:
             # Cargar red limpia sin resolver
             cbn_instance = load_identical_cbn(topo_path)
-            # Procesar y medir tiempos
-            tp1, tp2, tp3, total, n_attr, n_pairs, n_fields = execute_python_profile(cbn_instance, profile)
+            # Procesar y medir tiempos y memoria
+            tp1, tp2, tp3, total, mp1, mp2, mp3, mtot, n_attr, n_pairs, n_fields = execute_python_profile(cbn_instance, profile)
 
             # Guardar JSON específico de Python para depuración
             with open(exp_dir / f"fields_{profile}.json", "w") as f:
@@ -280,6 +292,10 @@ def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, o
                 "t_p2": tp2,
                 "t_p3": tp3,
                 "total_t": total,
+                "mem_p1_kb": mp1,
+                "mem_p2_kb": mp2,
+                "mem_p3_kb": mp3,
+                "mem_total_kb": mtot,
                 "n_attractors": n_attr,
                 "n_pairs": n_pairs,
                 "n_fields": n_fields
@@ -297,6 +313,10 @@ def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, o
                 "t_p2": 0.0,
                 "t_p3": 0.0,
                 "total_t": 0.0,
+                "mem_p1_kb": 0.0,
+                "mem_p2_kb": 0.0,
+                "mem_p3_kb": 0.0,
+                "mem_total_kb": 0.0,
                 "n_attractors": 0,
                 "n_pairs": 0,
                 "n_fields": 0
@@ -314,10 +334,11 @@ def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, o
     try:
         cpp_metrics = execute_cpp_profiles(topo_path, exp_dir)
         for profile, values in cpp_metrics.items():
-            tp1, tp2, tp3, total, n_attr, n_pairs, n_fields = values
+            tp1, tp2, tp3, total, mp1, mp2, mp3, mtot, n_attr, n_pairs, n_fields = values
             row = {
                 "sample": sample_id, "n_nets": n_nets, "perfil": profile,
                 "t_p1": tp1, "t_p2": tp2, "t_p3": tp3, "total_t": total,
+                "mem_p1_kb": mp1, "mem_p2_kb": mp2, "mem_p3_kb": mp3, "mem_total_kb": mtot,
                 "n_attractors": n_attr, "n_pairs": n_pairs, "n_fields": n_fields,
             }
             with open(csv_path, 'a', newline='') as csvfile:
@@ -350,7 +371,7 @@ def main():
 
     # --- CONFIGURAR CSV EN TIEMPO REAL ---
     csv_path = output_base / "benchmark_granular_workflow.csv"
-    fieldnames = ["sample", "n_nets", "perfil", "t_p1", "t_p2", "t_p3", "total_t", "n_attractors", "n_pairs", "n_fields"]
+    fieldnames = ["sample", "n_nets", "perfil", "t_p1", "t_p2", "t_p3", "total_t", "mem_p1_kb", "mem_p2_kb", "mem_p3_kb", "mem_total_kb", "n_attractors", "n_pairs", "n_fields"]
     
     # Crear el archivo e inicializar cabeceras si no existe
     if not csv_path.exists():
