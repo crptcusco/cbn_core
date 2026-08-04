@@ -240,10 +240,11 @@ def execute_cpp_profiles(topo_path: Path, exp_dir: Path) -> Dict[str, Tuple[floa
         t_p3 = perf_data.get("step_3_ms", 0.0) / 1000.0
         total_t = perf_data.get("total_ms", 0.0) / 1000.0
 
-        # Extraer max_rss_kb de la performance de C++ (con fallback a ru_maxrss)
-        max_rss_kb = perf_data.get("max_rss_kb", 0.0)
-        if max_rss_kb <= 0.0:
-            max_rss_kb = float(rusage_children.ru_maxrss)
+        # Extraer métricas de memoria quirúrgica del heap de C++
+        mem_p1_kb = perf_data.get("mem_p1_kb", 0.0)
+        mem_p2_kb = perf_data.get("mem_p2_kb", 0.0)
+        mem_p3_kb = perf_data.get("mem_p3_kb", 0.0)
+        mem_total_kb = perf_data.get("mem_total_kb", 0.0)
 
         step1 = json_data.get("pipeline_execution", {}).get("step_1_local_attractors", [])
         n_attractors = sum(len(item.get("attractors", [])) for item in step1)
@@ -251,7 +252,7 @@ def execute_cpp_profiles(topo_path: Path, exp_dir: Path) -> Dict[str, Tuple[floa
         n_pairs = len(step2)
         step3 = json_data.get("pipeline_execution", {}).get("step_3_global_fields", {})
         n_fields = len(step3.get("attractor_fields", []))
-        metrics[profile] = (t_p1, t_p2, t_p3, total_t, 0.0, 0.0, 0.0, max_rss_kb, n_attractors, n_pairs, n_fields)
+        metrics[profile] = (t_p1, t_p2, t_p3, total_t, mem_p1_kb, mem_p2_kb, mem_p3_kb, mem_total_kb, n_attractors, n_pairs, n_fields)
 
     return metrics
 
