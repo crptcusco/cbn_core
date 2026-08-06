@@ -1,0 +1,13 @@
+
+\begin{table}[htbp]
+    \centering
+    \caption{Peak memory consumption (KB) and overhead factor comparison between Python and C++ implementations.}
+    \label{tab:cbn_memory_overhead}
+    \begin{tabular}{lrrr}
+        \hline
+        \textbf{Execution Strategy} & \textbf{Python (KB)} & \textbf{C++ (KB)} & \textbf{Overhead} \\ \hline
+        Sequential & 764.93 & 261.28 & \textbf{2.9×} \\
+        Parallel   & 2584.36 & 260.00 & \textbf{9.9×} \\
+        Advanced   & 1758.14 & 220.48 & \textbf{8.0×} \\ \hline
+    \end{tabular}
+\end{table}
