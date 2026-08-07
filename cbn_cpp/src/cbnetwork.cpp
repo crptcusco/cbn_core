@@ -462,6 +462,28 @@ void CBN::mount_stable_attractor_fields() {
     return;
   }
 
+  // Heuristic complexity check based on size of local attractor space:
+  double estimated_fields = 1.0;
+  for (const auto &net : l_local_networks) {
+    size_t net_attr_count = 0;
+    for (const auto &scene : net->local_scenes) {
+      net_attr_count += scene->l_attractors.size();
+    }
+    if (net_attr_count == 0) {
+      estimated_fields = 0.0;
+      break;
+    }
+    estimated_fields *= net_attr_count;
+  }
+
+  const double threshold = 1048576.0; // 2^20
+  if (estimated_fields > threshold) {
+    std::cerr << "Warning: Complexity limit exceeded! Estimated potential fields ("
+              << estimated_fields << ") exceeds safety threshold (" << threshold
+              << "). Aborting attractor field assembly (Step 3) to prevent out-of-memory." << std::endl;
+    throw std::runtime_error("Complexity limit exceeded during attractor field assembly");
+  }
+
   // Step 1: Order edges by compatibility
   order_edges_by_compatibility();
 

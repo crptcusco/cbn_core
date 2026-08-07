@@ -163,7 +163,8 @@ void export_full_trace_json(int sample_id, const std::string &strategy_name, std
       {"mem_p1_kb", res.p1_mem_kb},
       {"mem_p2_kb", res.p2_mem_kb},
       {"mem_p3_kb", res.p3_mem_kb},
-      {"mem_total_kb", res.total_mem_kb}
+      {"mem_total_kb", res.total_mem_kb},
+      {"success", res.success}
   };
 
   std::ofstream out(filepath);

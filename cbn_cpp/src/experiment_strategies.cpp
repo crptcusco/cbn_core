@@ -8,6 +8,8 @@
 #include <omp.h>
 #include <sys/resource.h>
 #include <malloc.h>
+#include <new>
+#include <stdexcept>
 
 namespace cbnetwork {
 
@@ -50,29 +52,71 @@ ExperimentResults TraditionalExperiment::run(std::shared_ptr<CBN> cbn) {
   omp_set_num_threads(1);
   auto start_total = high_resolution_clock::now();
 
-  size_t mem_before_p1 = get_heap_allocated_bytes();
-  auto start1 = high_resolution_clock::now();
-  cbn->find_local_attractors_sequential();
-  auto end1 = high_resolution_clock::now();
-  size_t mem_after_p1 = get_heap_allocated_bytes();
-  res.p1_ms = duration<double, std::milli>(end1 - start1).count();
-  res.p1_mem_kb = (mem_after_p1 > mem_before_p1) ? (double)(mem_after_p1 - mem_before_p1) / 1024.0 : 0.0;
+  res.p1_ms = 0.0;
+  res.p1_mem_kb = 0.0;
+  res.p2_ms = 0.0;
+  res.p2_mem_kb = 0.0;
+  res.p3_ms = 0.0;
+  res.p3_mem_kb = 0.0;
+  res.total_ms = 0.0;
+  res.max_rss_kb = 0;
+  res.total_mem_kb = 0.0;
+  res.global_attractors_count = 0;
+  res.success = false;
 
-  size_t mem_before_p2 = get_heap_allocated_bytes();
-  auto start2 = high_resolution_clock::now();
-  cbn->find_compatible_pairs_sequential(); // Strictly sequential execution
-  auto end2 = high_resolution_clock::now();
-  size_t mem_after_p2 = get_heap_allocated_bytes();
-  res.p2_ms = duration<double, std::milli>(end2 - start2).count();
-  res.p2_mem_kb = (mem_after_p2 > mem_before_p2) ? (double)(mem_after_p2 - mem_before_p2) / 1024.0 : 0.0;
+  try {
+    size_t mem_before_p1 = get_heap_allocated_bytes();
+    auto start1 = high_resolution_clock::now();
+    cbn->find_local_attractors_sequential();
+    auto end1 = high_resolution_clock::now();
+    size_t mem_after_p1 = get_heap_allocated_bytes();
+    res.p1_ms = duration<double, std::milli>(end1 - start1).count();
+    res.p1_mem_kb = (mem_after_p1 > mem_before_p1) ? (double)(mem_after_p1 - mem_before_p1) / 1024.0 : 0.0;
+  } catch (const std::bad_alloc &e) {
+    std::cerr << "[TraditionalExperiment] Out of memory in Phase 1 (Local Attractors): " << e.what() << std::endl;
+    omp_set_num_threads(prev_threads);
+    return res;
+  } catch (const std::exception &e) {
+    std::cerr << "[TraditionalExperiment] Exception in Phase 1 (Local Attractors): " << e.what() << std::endl;
+    omp_set_num_threads(prev_threads);
+    return res;
+  }
 
-  size_t mem_before_p3 = get_heap_allocated_bytes();
-  auto start3 = high_resolution_clock::now();
-  cbn->mount_attractor_fields();
-  auto end3 = high_resolution_clock::now();
-  size_t mem_after_p3 = get_heap_allocated_bytes();
-  res.p3_ms = duration<double, std::milli>(end3 - start3).count();
-  res.p3_mem_kb = (mem_after_p3 > mem_before_p3) ? (double)(mem_after_p3 - mem_before_p3) / 1024.0 : 0.0;
+  try {
+    size_t mem_before_p2 = get_heap_allocated_bytes();
+    auto start2 = high_resolution_clock::now();
+    cbn->find_compatible_pairs_sequential(); // Strictly sequential execution
+    auto end2 = high_resolution_clock::now();
+    size_t mem_after_p2 = get_heap_allocated_bytes();
+    res.p2_ms = duration<double, std::milli>(end2 - start2).count();
+    res.p2_mem_kb = (mem_after_p2 > mem_before_p2) ? (double)(mem_after_p2 - mem_before_p2) / 1024.0 : 0.0;
+  } catch (const std::bad_alloc &e) {
+    std::cerr << "[TraditionalExperiment] Out of memory in Phase 2 (Compatible Pairs): " << e.what() << std::endl;
+    omp_set_num_threads(prev_threads);
+    return res;
+  } catch (const std::exception &e) {
+    std::cerr << "[TraditionalExperiment] Exception in Phase 2 (Compatible Pairs): " << e.what() << std::endl;
+    omp_set_num_threads(prev_threads);
+    return res;
+  }
+
+  try {
+    size_t mem_before_p3 = get_heap_allocated_bytes();
+    auto start3 = high_resolution_clock::now();
+    cbn->mount_attractor_fields();
+    auto end3 = high_resolution_clock::now();
+    size_t mem_after_p3 = get_heap_allocated_bytes();
+    res.p3_ms = duration<double, std::milli>(end3 - start3).count();
+    res.p3_mem_kb = (mem_after_p3 > mem_before_p3) ? (double)(mem_after_p3 - mem_before_p3) / 1024.0 : 0.0;
+  } catch (const std::bad_alloc &e) {
+    std::cerr << "[TraditionalExperiment] Out of memory in Phase 3 (Attractor Fields): " << e.what() << std::endl;
+    omp_set_num_threads(prev_threads);
+    return res;
+  } catch (const std::exception &e) {
+    std::cerr << "[TraditionalExperiment] Exception in Phase 3 (Attractor Fields): " << e.what() << std::endl;
+    omp_set_num_threads(prev_threads);
+    return res;
+  }
 
   auto end_total = high_resolution_clock::now();
   res.total_ms = duration<double, std::milli>(end_total - start_total).count();
@@ -90,29 +134,65 @@ ExperimentResults SimpleParallelExperiment::run(std::shared_ptr<CBN> cbn) {
   res.strategy_name = "SimpleParallel";
   auto start_total = high_resolution_clock::now();
 
-  size_t mem_before_p1 = get_heap_allocated_bytes();
-  auto start1 = high_resolution_clock::now();
-  cbn->find_local_attractors_parallel();
-  auto end1 = high_resolution_clock::now();
-  size_t mem_after_p1 = get_heap_allocated_bytes();
-  res.p1_ms = duration<double, std::milli>(end1 - start1).count();
-  res.p1_mem_kb = (mem_after_p1 > mem_before_p1) ? (double)(mem_after_p1 - mem_before_p1) / 1024.0 : 0.0;
+  res.p1_ms = 0.0;
+  res.p1_mem_kb = 0.0;
+  res.p2_ms = 0.0;
+  res.p2_mem_kb = 0.0;
+  res.p3_ms = 0.0;
+  res.p3_mem_kb = 0.0;
+  res.total_ms = 0.0;
+  res.max_rss_kb = 0;
+  res.total_mem_kb = 0.0;
+  res.global_attractors_count = 0;
+  res.success = false;
 
-  size_t mem_before_p2 = get_heap_allocated_bytes();
-  auto start2 = high_resolution_clock::now();
-  cbn->find_compatible_pairs_parallel();
-  auto end2 = high_resolution_clock::now();
-  size_t mem_after_p2 = get_heap_allocated_bytes();
-  res.p2_ms = duration<double, std::milli>(end2 - start2).count();
-  res.p2_mem_kb = (mem_after_p2 > mem_before_p2) ? (double)(mem_after_p2 - mem_before_p2) / 1024.0 : 0.0;
+  try {
+    size_t mem_before_p1 = get_heap_allocated_bytes();
+    auto start1 = high_resolution_clock::now();
+    cbn->find_local_attractors_parallel();
+    auto end1 = high_resolution_clock::now();
+    size_t mem_after_p1 = get_heap_allocated_bytes();
+    res.p1_ms = duration<double, std::milli>(end1 - start1).count();
+    res.p1_mem_kb = (mem_after_p1 > mem_before_p1) ? (double)(mem_after_p1 - mem_before_p1) / 1024.0 : 0.0;
+  } catch (const std::bad_alloc &e) {
+    std::cerr << "[SimpleParallelExperiment] Out of memory in Phase 1 (Local Attractors): " << e.what() << std::endl;
+    return res;
+  } catch (const std::exception &e) {
+    std::cerr << "[SimpleParallelExperiment] Exception in Phase 1 (Local Attractors): " << e.what() << std::endl;
+    return res;
+  }
 
-  size_t mem_before_p3 = get_heap_allocated_bytes();
-  auto start3 = high_resolution_clock::now();
-  cbn->mount_attractor_fields();
-  auto end3 = high_resolution_clock::now();
-  size_t mem_after_p3 = get_heap_allocated_bytes();
-  res.p3_ms = duration<double, std::milli>(end3 - start3).count();
-  res.p3_mem_kb = (mem_after_p3 > mem_before_p3) ? (double)(mem_after_p3 - mem_before_p3) / 1024.0 : 0.0;
+  try {
+    size_t mem_before_p2 = get_heap_allocated_bytes();
+    auto start2 = high_resolution_clock::now();
+    cbn->find_compatible_pairs_parallel();
+    auto end2 = high_resolution_clock::now();
+    size_t mem_after_p2 = get_heap_allocated_bytes();
+    res.p2_ms = duration<double, std::milli>(end2 - start2).count();
+    res.p2_mem_kb = (mem_after_p2 > mem_before_p2) ? (double)(mem_after_p2 - mem_before_p2) / 1024.0 : 0.0;
+  } catch (const std::bad_alloc &e) {
+    std::cerr << "[SimpleParallelExperiment] Out of memory in Phase 2 (Compatible Pairs): " << e.what() << std::endl;
+    return res;
+  } catch (const std::exception &e) {
+    std::cerr << "[SimpleParallelExperiment] Exception in Phase 2 (Compatible Pairs): " << e.what() << std::endl;
+    return res;
+  }
+
+  try {
+    size_t mem_before_p3 = get_heap_allocated_bytes();
+    auto start3 = high_resolution_clock::now();
+    cbn->mount_attractor_fields();
+    auto end3 = high_resolution_clock::now();
+    size_t mem_after_p3 = get_heap_allocated_bytes();
+    res.p3_ms = duration<double, std::milli>(end3 - start3).count();
+    res.p3_mem_kb = (mem_after_p3 > mem_before_p3) ? (double)(mem_after_p3 - mem_before_p3) / 1024.0 : 0.0;
+  } catch (const std::bad_alloc &e) {
+    std::cerr << "[SimpleParallelExperiment] Out of memory in Phase 3 (Attractor Fields): " << e.what() << std::endl;
+    return res;
+  } catch (const std::exception &e) {
+    std::cerr << "[SimpleParallelExperiment] Exception in Phase 3 (Attractor Fields): " << e.what() << std::endl;
+    return res;
+  }
 
   auto end_total = high_resolution_clock::now();
   res.total_ms = duration<double, std::milli>(end_total - start_total).count();
@@ -129,29 +209,65 @@ ExperimentResults AdvancedParallelExperiment::run(std::shared_ptr<CBN> cbn) {
   res.strategy_name = "AdvancedParallel";
   auto start_total = high_resolution_clock::now();
 
-  size_t mem_before_p1 = get_heap_allocated_bytes();
-  auto start1 = high_resolution_clock::now();
-  cbn->find_local_attractors();
-  auto end1 = high_resolution_clock::now();
-  size_t mem_after_p1 = get_heap_allocated_bytes();
-  res.p1_ms = duration<double, std::milli>(end1 - start1).count();
-  res.p1_mem_kb = (mem_after_p1 > mem_before_p1) ? (double)(mem_after_p1 - mem_before_p1) / 1024.0 : 0.0;
+  res.p1_ms = 0.0;
+  res.p1_mem_kb = 0.0;
+  res.p2_ms = 0.0;
+  res.p2_mem_kb = 0.0;
+  res.p3_ms = 0.0;
+  res.p3_mem_kb = 0.0;
+  res.total_ms = 0.0;
+  res.max_rss_kb = 0;
+  res.total_mem_kb = 0.0;
+  res.global_attractors_count = 0;
+  res.success = false;
 
-  size_t mem_before_p2 = get_heap_allocated_bytes();
-  auto start2 = high_resolution_clock::now();
-  cbn->find_compatible_pairs();
-  auto end2 = high_resolution_clock::now();
-  size_t mem_after_p2 = get_heap_allocated_bytes();
-  res.p2_ms = duration<double, std::milli>(end2 - start2).count();
-  res.p2_mem_kb = (mem_after_p2 > mem_before_p2) ? (double)(mem_after_p2 - mem_before_p2) / 1024.0 : 0.0;
+  try {
+    size_t mem_before_p1 = get_heap_allocated_bytes();
+    auto start1 = high_resolution_clock::now();
+    cbn->find_local_attractors();
+    auto end1 = high_resolution_clock::now();
+    size_t mem_after_p1 = get_heap_allocated_bytes();
+    res.p1_ms = duration<double, std::milli>(end1 - start1).count();
+    res.p1_mem_kb = (mem_after_p1 > mem_before_p1) ? (double)(mem_after_p1 - mem_before_p1) / 1024.0 : 0.0;
+  } catch (const std::bad_alloc &e) {
+    std::cerr << "[AdvancedParallelExperiment] Out of memory in Phase 1 (Local Attractors): " << e.what() << std::endl;
+    return res;
+  } catch (const std::exception &e) {
+    std::cerr << "[AdvancedParallelExperiment] Exception in Phase 1 (Local Attractors): " << e.what() << std::endl;
+    return res;
+  }
 
-  size_t mem_before_p3 = get_heap_allocated_bytes();
-  auto start3 = high_resolution_clock::now();
-  cbn->mount_attractor_fields();
-  auto end3 = high_resolution_clock::now();
-  size_t mem_after_p3 = get_heap_allocated_bytes();
-  res.p3_ms = duration<double, std::milli>(end3 - start3).count();
-  res.p3_mem_kb = (mem_after_p3 > mem_before_p3) ? (double)(mem_after_p3 - mem_before_p3) / 1024.0 : 0.0;
+  try {
+    size_t mem_before_p2 = get_heap_allocated_bytes();
+    auto start2 = high_resolution_clock::now();
+    cbn->find_compatible_pairs();
+    auto end2 = high_resolution_clock::now();
+    size_t mem_after_p2 = get_heap_allocated_bytes();
+    res.p2_ms = duration<double, std::milli>(end2 - start2).count();
+    res.p2_mem_kb = (mem_after_p2 > mem_before_p2) ? (double)(mem_after_p2 - mem_before_p2) / 1024.0 : 0.0;
+  } catch (const std::bad_alloc &e) {
+    std::cerr << "[AdvancedParallelExperiment] Out of memory in Phase 2 (Compatible Pairs): " << e.what() << std::endl;
+    return res;
+  } catch (const std::exception &e) {
+    std::cerr << "[AdvancedParallelExperiment] Exception in Phase 2 (Compatible Pairs): " << e.what() << std::endl;
+    return res;
+  }
+
+  try {
+    size_t mem_before_p3 = get_heap_allocated_bytes();
+    auto start3 = high_resolution_clock::now();
+    cbn->mount_attractor_fields();
+    auto end3 = high_resolution_clock::now();
+    size_t mem_after_p3 = get_heap_allocated_bytes();
+    res.p3_ms = duration<double, std::milli>(end3 - start3).count();
+    res.p3_mem_kb = (mem_after_p3 > mem_before_p3) ? (double)(mem_after_p3 - mem_before_p3) / 1024.0 : 0.0;
+  } catch (const std::bad_alloc &e) {
+    std::cerr << "[AdvancedParallelExperiment] Out of memory in Phase 3 (Attractor Fields): " << e.what() << std::endl;
+    return res;
+  } catch (const std::exception &e) {
+    std::cerr << "[AdvancedParallelExperiment] Exception in Phase 3 (Attractor Fields): " << e.what() << std::endl;
+    return res;
+  }
 
   auto end_total = high_resolution_clock::now();
   res.total_ms = duration<double, std::milli>(end_total - start_total).count();
