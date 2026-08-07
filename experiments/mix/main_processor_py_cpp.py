@@ -7,7 +7,7 @@ import time
 import traceback
 import csv
 import subprocess
-import tracemalloc  # <--- NUEVA IMPORTACIÓN
+import tracemalloc
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 import resource
