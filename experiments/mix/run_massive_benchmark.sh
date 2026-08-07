@@ -7,7 +7,7 @@
 
 # Definir la progresión geométrica de las redes locales a evaluar
 NETWORKS=(16 32 64 128 256 512 1024)
-SAMPLES=1000
+SAMPLES=250
 
 echo "================================================================="
 echo " 🚀 INICIANDO BATCH DE EXPERIMENTOS MASIVOS (16 a 1024 BNs)"

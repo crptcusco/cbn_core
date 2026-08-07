@@ -38,7 +38,7 @@ def validate_config(config: Dict[str, Any]) -> bool:
             return False
     return True
 
-def execute_cpp_profiles(topo_path: Path, exp_dir: Path) -> Dict[str, Tuple[float, float, float, float, float, float, float, float, int, int, int]]:
+def execute_cpp_profiles(topo_path: Path, exp_dir: Path, v_topology: int = 2, n_networks: int = 4, n_vars: int = 5) -> Dict[str, Tuple[float, float, float, float, float, float, float, float, int, int, int]]:
     """Ejecuta C++ una vez y extrae las métricas de sus tres estrategias."""
     if not CPP_BINARY.exists():
         raise FileNotFoundError(f"C++ binary not found at: {CPP_BINARY}. Please build it first using 'make build-cpp'.")
@@ -47,6 +47,9 @@ def execute_cpp_profiles(topo_path: Path, exp_dir: Path) -> Dict[str, Tuple[floa
     cmd = [
         str(CPP_BINARY),
         "--samples", "1",
+        "--topology", str(v_topology),
+        "--networks", str(n_networks),
+        "--vars", str(n_vars),
         "--input", str(topo_path),
         "--dir", str(exp_dir)
     ]
@@ -111,6 +114,8 @@ def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, o
     exp_dir.mkdir(parents=True, exist_ok=True)
     
     n_nets = config.get("n_networks", 0)
+    v_topology = config.get("v_topology", 2)
+    n_var_network = config.get("n_var_network", 5)
 
     # 1. Generar la "Red Maestra" y guardarla
     logger.info(f"[{experiment_name}] Generando topología base...")
@@ -120,7 +125,7 @@ def run_pipeline(config: Dict[str, Any], sample_id: int, experiment_name: str, o
 
     # 2. Ejecutar exclusivamente el motor C++
     try:
-        cpp_metrics = execute_cpp_profiles(topo_path, exp_dir)
+        cpp_metrics = execute_cpp_profiles(topo_path, exp_dir, v_topology=v_topology, n_networks=n_nets, n_vars=n_var_network)
         for profile, values in cpp_metrics.items():
             tp1, tp2, tp3, total, mp1, mp2, mp3, mtot, n_attr, n_pairs, n_fields = values
             row = {
