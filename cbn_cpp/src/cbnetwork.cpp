@@ -7,7 +7,6 @@
 #include "nlohmann/json.hpp"
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
 #include <fstream>
 #include <future>
 #include <iostream>
@@ -463,39 +462,6 @@ void CBN::mount_stable_attractor_fields() {
     return;
   }
 
-  // Heuristic complexity check based on size of local attractor space:
-  // We use the maximum attractor count per local scene for each local network,
-  // since a network can only be in one scene at any given global state.
-  double estimated_fields = 1.0;
-  for (const auto &net : l_local_networks) {
-    size_t max_scene_attr_count = 0;
-    for (const auto &scene : net->local_scenes) {
-      max_scene_attr_count = std::max(max_scene_attr_count, scene->l_attractors.size());
-    }
-    if (max_scene_attr_count == 0) {
-      estimated_fields = 0.0;
-      break;
-    }
-    estimated_fields *= max_scene_attr_count;
-  }
-
-  double threshold = 1048576.0; // 2^20 default
-  const char* env_threshold = std::getenv("CBN_COMPLEXITY_THRESHOLD");
-  if (env_threshold != nullptr) {
-    try {
-      threshold = std::stod(env_threshold);
-    } catch (...) {
-      // Ignore invalid formats, keep default
-    }
-  }
-
-  if (estimated_fields > threshold) {
-    std::cerr << "Warning: Complexity limit exceeded! Estimated potential fields ("
-              << estimated_fields << ") exceeds safety threshold (" << threshold
-              << "). Aborting attractor field assembly (Step 3) to prevent out-of-memory." << std::endl;
-    throw std::runtime_error("Complexity limit exceeded during attractor field assembly");
-  }
-
   // Step 1: Order edges by compatibility
   order_edges_by_compatibility();
 
@@ -540,13 +506,6 @@ void CBN::mount_stable_attractor_fields() {
       break;
     }
 
-    // Prevent huge Cartesian product before it runs
-    if ((double)current_fields.size() * unique_candidates.size() > threshold * 10) {
-      std::cerr << "Warning: Potential combinatorial explosion! Product size ("
-                << current_fields.size() * unique_candidates.size() << ") exceeds safety limit." << std::endl;
-      throw std::runtime_error("Complexity limit exceeded during attractor field assembly");
-    }
-
     std::set<std::vector<int>> unique_next_fields;
     for (const auto &field : current_fields) {
       // Optimization: Pre-build net_to_attr map for the current field
@@ -571,14 +530,6 @@ void CBN::mount_stable_attractor_fields() {
           std::sort(new_f.begin(), new_f.end());
           new_f.erase(std::unique(new_f.begin(), new_f.end()), new_f.end());
           unique_next_fields.insert(new_f);
-
-          // Dynamic safety check inside assembly loop
-          if (unique_next_fields.size() > threshold) {
-            std::cerr << "Warning: Combinatorial explosion detected! Intermediate fields count ("
-                      << unique_next_fields.size() << ") exceeds safety threshold (" << threshold
-                      << ")." << std::endl;
-            throw std::runtime_error("Complexity limit exceeded during attractor field assembly");
-          }
         }
       }
     }

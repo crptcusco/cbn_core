@@ -74,50 +74,11 @@ void test_evaluate_boolean_function() {
     std::cout << "test_evaluate_boolean_function passed" << std::endl;
 }
 
-void test_complexity_threshold_validation() {
-    // We will build a dummy CBN with 11 local networks, each having 4 attractors.
-    std::vector<std::shared_ptr<LocalNetwork>> networks;
-    for (int i = 1; i <= 11; ++i) {
-        auto net = std::make_shared<LocalNetwork>(i, std::vector<int>{i});
-        // Add a scene
-        auto scene = std::make_shared<LocalScene>(1, std::vector<std::string>{""}, std::vector<int>{});
-        // Add 4 dummy attractors
-        for (int a = 1; a <= 4; ++a) {
-            auto attr = std::make_shared<LocalAttractor>(
-                0, a, std::vector<std::shared_ptr<LocalState>>{}, i, std::vector<int>{}, ""
-            );
-            scene->l_attractors.push_back(attr);
-        }
-        net->local_scenes.push_back(scene);
-        networks.push_back(net);
-    }
-
-    // Add 1 dummy edge so directed edges is not empty
-    std::vector<std::shared_ptr<DirectedEdge>> edges;
-    edges.push_back(std::make_shared<DirectedEdge>(1, 100, 1, 2, std::vector<int>{1}, ""));
-
-    CBN cbn(networks, edges);
-
-    // Call mount_stable_attractor_fields and assert it throws std::runtime_error
-    bool threw = false;
-    try {
-        cbn.mount_stable_attractor_fields();
-    } catch (const std::runtime_error& e) {
-        std::string msg = e.what();
-        if (msg.find("Complexity limit exceeded") != std::string::npos) {
-            threw = true;
-        }
-    }
-    assert(threw);
-    std::cout << "test_complexity_threshold_validation passed" << std::endl;
-}
-
 int main() {
     test_or_coupling();
     test_and_coupling();
     test_threshold_coupling();
     test_evaluate_boolean_function();
-    test_complexity_threshold_validation();
     std::cout << "All C++ unit tests passed!" << std::endl;
     return 0;
 }
