@@ -1528,6 +1528,7 @@ class CBN:
         coupling_strategy: Optional[CouplingStrategy] = None,
         coupling_factory=None,
         seed: Optional[int] = None,
+        variable_names: Optional[list] = None,
     ) -> "CBN":
         """Factory method to generate a complete CBN from high-level parameters.
         This is the primary entry point for creating a CBN. It automates the
@@ -1587,6 +1588,7 @@ class CBN:
             l_global_edges=o_global_topology.l_edges,
             coupling_strategy=coupling_strategy,
             coupling_factory=coupling_factory,
+            variable_names=variable_names,
         )
         return o_cbn
 
@@ -1619,7 +1621,7 @@ class CBN:
             "v_topology", "n_networks", "n_var_network",
             "n_input_variables", "n_output_variables",
             "n_max_of_clauses", "n_max_of_literals",
-            "n_edges", "seed"
+            "n_edges", "seed", "variable_names"
         ]
 
         filtered_config = {k: v for k, v in config.items() if k in valid_args}
@@ -1654,12 +1656,13 @@ class CBN:
         return [edge for edge in l_directed_edges if edge.input_local_network == index]
 
     @staticmethod
-    def generate_local_networks_indexes_variables(n_networks, n_var_network):
+    def generate_local_networks_indexes_variables(n_networks, n_var_network, variable_names=None):
         """
         Generates local networks and their variable indexes.
         Args:
             n_networks (int): Number of local networks to generate.
             n_var_network (int): Number of variables per network.
+            variable_names (list, optional): List of descriptive names for the variables.
         Returns:
             list: List of LocalNetwork objects.
         """
@@ -1668,9 +1671,21 @@ class CBN:
         for v_num_network in range(1, n_networks + 1):
             # generate the variables of the networks
             internal_variables = list(range(v_cont_var, v_cont_var + n_var_network))
+
+            # Determine variable names for this local network
+            net_var_names = None
+            if variable_names is not None:
+                if len(variable_names) > 0 and isinstance(variable_names[0], list):
+                    # It's a list of lists (one per network)
+                    if v_num_network - 1 < len(variable_names):
+                        net_var_names = variable_names[v_num_network - 1]
+                else:
+                    # It's a single list of names applied to all networks
+                    net_var_names = variable_names
+
             # create the Local Network object
             o_local_network = LocalNetwork(
-                index=v_num_network, internal_variables=internal_variables
+                index=v_num_network, internal_variables=internal_variables, variable_names=net_var_names
             )
             # add the local network object to the list
             l_local_networks.append(o_local_network)
@@ -1687,6 +1702,7 @@ class CBN:
         l_global_edges,
         coupling_strategy: Optional[CouplingStrategy] = None,
         coupling_factory=None,
+        variable_names=None,
     ):
         """
         Generates a CBN (Coupled Boolean Network) using a given template and global edges.
@@ -1697,12 +1713,13 @@ class CBN:
             o_template: Template for local networks.
             l_global_edges (list): List of tuples representing the global edges between local networks.
             coupling_strategy (CouplingStrategy): The coupling strategy to use.
+            variable_names (list, optional): List of descriptive names for the variables.
         Returns:
             A CBN object generated from the provided template and global edges.
         """
         # Generate the local networks with indexes and variables (without relations or dynamics)
         l_local_networks = CBN.generate_local_networks_indexes_variables(
-            n_networks=n_networks, n_var_network=n_var_network
+            n_networks=n_networks, n_var_network=n_var_network, variable_names=variable_names
         )
         # Generate the directed edges between the local networks
         l_directed_edges = []
@@ -2053,6 +2070,7 @@ class CBN:
             net_data = {
                 "index": net.index,
                 "internal_variables": net.internal_variables,
+                "variable_names": net.variable_names,
                 "descriptive_function_variables": [],
             }
             for var in net.descriptive_function_variables:
@@ -2157,6 +2175,7 @@ class CBN:
             net_data = {
                 "index": net.index,
                 "internal_variables": net.internal_variables,
+                "variable_names": net.variable_names,
                 "descriptive_function_variables": [],
             }
             for var in net.descriptive_function_variables:
@@ -2203,6 +2222,7 @@ class CBN:
             net = LocalNetwork(
                 index=net_data["index"],
                 internal_variables=net_data["internal_variables"],
+                variable_names=net_data.get("variable_names"),
             )
             logic_key = (
                 "descriptive_function_variables"

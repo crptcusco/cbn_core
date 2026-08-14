@@ -15,6 +15,7 @@ class LocalNetwork {
 public:
     int index;
     std::vector<int> internal_variables;
+    std::vector<std::string> variable_names;
     std::vector<std::shared_ptr<InternalVariable>> descriptive_function_variables;
     std::vector<int> external_variables;
     std::vector<int> total_variables;
@@ -27,7 +28,11 @@ public:
     std::vector<std::shared_ptr<LocalScene>> local_scenes;
 
     LocalNetwork(int idx, const std::vector<int>& inter_vars)
-        : index(idx), internal_variables(inter_vars), total_variables_count(0), attractor_count(0) {}
+        : index(idx), internal_variables(inter_vars), total_variables_count(0), attractor_count(0) {
+        for (size_t i = 0; i < inter_vars.size(); ++i) {
+            variable_names.push_back("Var_" + std::to_string(i));
+        }
+    }
 
     void show() const;
     void process_input_signals(const std::vector<std::shared_ptr<DirectedEdge>>& inputs);

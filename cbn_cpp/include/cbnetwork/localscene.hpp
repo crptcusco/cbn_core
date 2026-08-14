@@ -28,11 +28,13 @@ public:
     int network_index;
     std::vector<int> relation_index;
     std::string local_scene;
+    std::vector<std::string> variable_names;
 
     LocalAttractor(int g_idx, int l_idx, const std::vector<std::shared_ptr<LocalState>>& states,
-                   int net_idx, const std::vector<int>& rel_idx = {}, const std::string& scene = "")
+                   int net_idx, const std::vector<int>& rel_idx = {}, const std::string& scene = "",
+                   const std::vector<std::string>& var_names = {})
         : g_index(g_idx), l_index(l_idx), l_states(states), network_index(net_idx),
-          relation_index(rel_idx), local_scene(scene) {}
+          relation_index(rel_idx), local_scene(scene), variable_names(var_names) {}
 
     void show() const;
     void show_short() const;

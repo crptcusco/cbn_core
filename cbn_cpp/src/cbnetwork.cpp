@@ -921,6 +921,7 @@ std::shared_ptr<CBN> CBN::clone() const {
   for (const auto &net : l_local_networks) {
     auto cloned_net =
         std::make_shared<LocalNetwork>(net->index, net->internal_variables);
+    cloned_net->variable_names = net->variable_names;
     cloned_net->descriptive_function_variables =
         net->descriptive_function_variables;
     cloned_networks.push_back(cloned_net);
@@ -962,6 +963,7 @@ void CBN::save_network_to_json(const std::string &filepath) const {
     json j_net;
     j_net["index"] = net->index;
     j_net["internal_variables"] = net->internal_variables;
+    j_net["variable_names"] = net->variable_names;
 
     json j_vars = json::array();
     for (const auto &var : net->descriptive_function_variables) {
@@ -1091,6 +1093,9 @@ std::shared_ptr<CBN> CBN::load_network_from_json(const std::string &filepath) {
       std::vector<int> internal_vars =
           net_j["internal_variables"].get<std::vector<int>>();
       auto net = std::make_shared<LocalNetwork>(idx, internal_vars);
+      if (net_j.contains("variable_names")) {
+        net->variable_names = net_j["variable_names"].get<std::vector<std::string>>();
+      }
       std::string logic_key = net_j.contains("descriptive_function_variables")
                                   ? "descriptive_function_variables"
                                   : "logic";

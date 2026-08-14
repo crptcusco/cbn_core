@@ -9,7 +9,8 @@ void LocalAttractor::show() const {
     for (auto& state : l_states) {
         std::cout << "[";
         for (size_t i = 0; i < state->l_variable_values.size(); ++i) {
-            std::cout << state->l_variable_values[i] << (i == state->l_variable_values.size() - 1 ? "" : ",");
+            std::string name = (i < variable_names.size()) ? variable_names[i] : ("Var_" + std::to_string(i));
+            std::cout << name << "=" << state->l_variable_values[i] << (i == state->l_variable_values.size() - 1 ? "" : ", ");
         }
         std::cout << "]";
     }
@@ -21,7 +22,8 @@ void LocalAttractor::show_short() const {
     for (auto& state : l_states) {
         std::cout << "[";
         for (size_t i = 0; i < state->l_variable_values.size(); ++i) {
-            std::cout << state->l_variable_values[i] << (i == state->l_variable_values.size() - 1 ? "" : ",");
+            std::string name = (i < variable_names.size()) ? variable_names[i] : ("Var_" + std::to_string(i));
+            std::cout << name << "=" << state->l_variable_values[i] << (i == state->l_variable_values.size() - 1 ? "" : ", ");
         }
         std::cout << "]";
     }
