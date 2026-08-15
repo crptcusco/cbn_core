@@ -15,17 +15,22 @@ logger = logging.getLogger(__name__)
 
 
 class LocalNetwork:
-    def __init__(self, index: int, internal_variables: list):
+    def __init__(self, index: int, internal_variables: list, variable_names: list = None):
         """
         Initialize a LocalNetwork instance.
 
         Args:
             index (int): The index of the local network.
             internal_variables (list): List of internal variables.
+            variable_names (list, optional): List of descriptive names for the variables.
         """
         # Manual properties
         self.index = index
         self.internal_variables = internal_variables
+        if variable_names is None:
+            self.variable_names = [f"Var_{i}" for i in range(len(internal_variables))]
+        else:
+            self.variable_names = list(variable_names)
 
         # Processed properties
         self.descriptive_function_variables: list = (
@@ -473,6 +478,7 @@ class LocalNetwork:
                             network_index=local_network.index,
                             relation_index=local_network.external_variables,
                             local_scene=scene_str,
+                            variable_names=local_network.variable_names,
                         )
                         scene_attractors.append(attractor)
                         break
@@ -581,6 +587,7 @@ class LocalNetwork:
                 network_index=local_network.index,
                 relation_index=local_network.external_variables,
                 local_scene=scene,
+                variable_names=local_network.variable_names,
             )
 
             scene_attractors.append(local_attractor)

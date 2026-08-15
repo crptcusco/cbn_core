@@ -24,6 +24,7 @@ class LocalAttractor:
         network_index,
         relation_index=None,
         local_scene=None,
+        variable_names=None,
     ):
         """
         Initialize a LocalAttractor object.
@@ -35,6 +36,7 @@ class LocalAttractor:
             network_index (int): Index of the network where the attractor is located.
             relation_index (int, optional): Index of the relation associated with the attractor. Defaults to None.
             local_scene (LocalScene, optional): LocalScene object associated with the attractor. Defaults to None.
+            variable_names (list, optional): List of descriptive names for variables.
         """
         self.g_index = g_index
         self.l_index = l_index
@@ -42,6 +44,7 @@ class LocalAttractor:
         self.network_index = network_index
         self.relation_index = relation_index
         self.local_scene = local_scene
+        self.variable_names = variable_names
 
     def show(self):
         """
@@ -57,9 +60,16 @@ class LocalAttractor:
         logger = logging.getLogger(__name__)
         states_str = []
         for o_state in self.l_states:
-            states_str.append(
-                "[" + ",".join(str(v) for v in o_state.l_variable_values) + "]"
-            )
+            if self.variable_names:
+                formatted_vars = []
+                for idx, v in enumerate(o_state.l_variable_values):
+                    name = self.variable_names[idx] if idx < len(self.variable_names) else f"Var_{idx}"
+                    formatted_vars.append(f"{name}={v}")
+                states_str.append("[" + ", ".join(formatted_vars) + "]")
+            else:
+                states_str.append(
+                    "[" + ",".join(str(v) for v in o_state.l_variable_values) + "]"
+                )
         logger.info(
             "Network Index: %s, Input Signal Index: %s, Scene: %s, Global Index: %s, Local Index: %s, States: %s",
             self.network_index,
@@ -82,10 +92,18 @@ class LocalAttractor:
 
         setup_logging()
         logger = logging.getLogger(__name__)
-        states_str = [
-            "[" + ",".join(str(v) for v in o_state.l_variable_values) + "]"
-            for o_state in self.l_states
-        ]
+        states_str = []
+        for o_state in self.l_states:
+            if self.variable_names:
+                formatted_vars = []
+                for idx, v in enumerate(o_state.l_variable_values):
+                    name = self.variable_names[idx] if idx < len(self.variable_names) else f"Var_{idx}"
+                    formatted_vars.append(f"{name}={v}")
+                states_str.append("[" + ", ".join(formatted_vars) + "]")
+            else:
+                states_str.append(
+                    "[" + ",".join(str(v) for v in o_state.l_variable_values) + "]"
+                )
         logger.info(
             "Net. Index: %s, Attrac. Index: %s, States: %s",
             self.network_index,

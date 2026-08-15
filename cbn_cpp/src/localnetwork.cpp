@@ -124,7 +124,7 @@ std::shared_ptr<LocalNetwork> LocalNetwork::find_local_attractors_brute_force(
                         l_states.push_back(std::make_shared<LocalState>(*it));
                     }
                     auto attractor = std::make_shared<LocalAttractor>(
-                        0, scene_attractors.size() + 1, l_states, local_network->index, local_network->external_variables, scene_str
+                        0, scene_attractors.size() + 1, l_states, local_network->index, local_network->external_variables, scene_str, local_network->variable_names
                     );
                     scene_attractors.push_back(attractor);
                     break;
@@ -288,7 +288,7 @@ std::shared_ptr<LocalNetwork> LocalNetwork::find_local_attractors_duvrova(
 
             auto attractor = std::make_shared<LocalAttractor>(
                 0, scene_attractors.size() + 1, states, local_network->index,
-                external, scene_str);
+                external, scene_str, local_network->variable_names);
             scene_attractors.push_back(attractor);
             for (const auto& state : states) blocked_states.push_back(state->l_variable_values);
         }
