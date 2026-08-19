@@ -124,6 +124,15 @@ class LocalNetwork:
         # Clear existing scenes to avoid accumulation
         local_network.local_scenes = []
 
+        # A local state contains only internal variables plus the fixed inputs of
+        # the current scene.  Coupling variables defined by this network are
+        # output relations, not additional local state variables.
+        local_network.total_variables = list(local_network.internal_variables)
+        for var in local_network.external_variables:
+            if var not in local_network.total_variables:
+                local_network.total_variables.append(var)
+        local_network.total_variables_count = len(local_network.total_variables)
+
         # Print the title for finding attractors
         CustomText.print_simple_line()
         logging.getLogger(__name__).info(

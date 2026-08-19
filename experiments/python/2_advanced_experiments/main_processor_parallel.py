@@ -8,8 +8,12 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict, List
 
-# Configuración de rutas para importaciones internas
-root_dir = Path(__file__).resolve().parent
+# Búsqueda dinámica de la raíz del proyecto (cbn_core)
+current_dir = Path(__file__).resolve().parent
+root_dir = current_dir
+while not (root_dir / "cbn_python").exists() and root_dir.parent != root_dir:
+    root_dir = root_dir.parent
+
 sys.path.append(str(root_dir / "cbn_python" / "src"))
 
 from cbnetwork.cbnetwork import CBN
@@ -28,7 +32,6 @@ def validate_config(config: Dict[str, Any]) -> bool:
     return True
 
 def run_pipeline(config: Dict[str, Any], experiment_name: str, output_base: Path) -> Dict[str, Any]:
-    """Executes the full CBN analysis pipeline using Dubrova's method for attractors."""
     exp_dir = output_base / experiment_name
     exp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -55,10 +58,7 @@ def run_pipeline(config: Dict[str, Any], experiment_name: str, output_base: Path
         # Step 1: Local Attractors (Dubrova Method)
         logger.info(f"[{experiment_name}] Step 1: Finding local attractors (Dubrova)...")
         t1_start = time.perf_counter()
-        
-        # Cambio de algoritmo: Fuerza bruta deshabilitada, entra Dubrova
-        cbn.find_attractors_duvrova()
-        
+        cbn.find_local_attractors_parallel()
         summary["performance"]["t_p1"] = time.perf_counter() - t1_start
         summary["results"]["n_local_attractors"] = cbn.get_n_local_attractors()
         with open(exp_dir / "attractors.json", "w") as f:
@@ -67,7 +67,7 @@ def run_pipeline(config: Dict[str, Any], experiment_name: str, output_base: Path
         # Step 2: Compatible Pairs
         logger.info(f"[{experiment_name}] Step 2: Finding compatible pairs...")
         t2_start = time.perf_counter()
-        cbn.find_compatible_pairs()
+        cbn.find_compatible_pairs_parallel()
         summary["performance"]["t_p2"] = time.perf_counter() - t2_start
         summary["results"]["n_pairs"] = cbn.get_n_pair_attractors()
         with open(exp_dir / "pairs.json", "w") as f:
@@ -76,7 +76,7 @@ def run_pipeline(config: Dict[str, Any], experiment_name: str, output_base: Path
         # Step 3: Attractor Fields
         logger.info(f"[{experiment_name}] Step 3: Mounting stable attractor fields...")
         t3_start = time.perf_counter()
-        cbn.mount_stable_attractor_fields()
+        cbn.mount_stable_attractor_fields_parallel()
         summary["performance"]["t_p3"] = time.perf_counter() - t3_start
         summary["results"]["n_fields"] = cbn.get_n_attractor_fields()
         with open(exp_dir / "fields.json", "w") as f:

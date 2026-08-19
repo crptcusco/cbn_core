@@ -8,8 +8,12 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict, List
 
-# Configuración de rutas para importaciones internas
-root_dir = Path(__file__).resolve().parent
+# Búsqueda dinámica de la raíz del proyecto (cbn_core)
+current_dir = Path(__file__).resolve().parent
+root_dir = current_dir
+while not (root_dir / "cbn_python").exists() and root_dir.parent != root_dir:
+    root_dir = root_dir.parent
+
 sys.path.append(str(root_dir / "cbn_python" / "src"))
 
 from cbnetwork.cbnetwork import CBN
