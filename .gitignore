@@ -126,10 +126,14 @@ venv.bak/
 # --- PROYECTO ESPECIFICO ---
 outputs/
 *.pkl
-# Ignorar todos los CSVs pero permitir este en particular
-*.csv
-!benchmark_granular_workflow.csv
+# Permitir CSVs de análisis; ignorar datos masivos y JSONs generados por ubicación específica
 *.log
+
+# Ignorar datos generados dentro de cada experimento
+**/data/
+**/benchmark_BN*/
+**/cbn_sample_*
+*.json
 
 # Bloquear directorios de compilación nativos de C++
 cbn_cpp/build/
@@ -139,14 +143,6 @@ cbn_cpp/CMakeLists.txt.user
 experiments/results_*/
 **/results_t*/
 experiments/outputs/
-
-# Bloquear archivos de datos masivos (JSON dinámicos y estructuras generadas)
-**/cbn_sample_*
-*.json
-
-# Excepciones: Si en el futuro necesitas subir un JSON de configuración específico, 
-# puedes forzarlo descomentando la línea de abajo:
-# !experiments/config.json
 
 # Temporary and local IDE files
 .tmp_test_env/
