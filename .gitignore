@@ -148,4 +148,3 @@ experiments/outputs/
 .tmp_test_env/
 .vscode/
 *.png
-*.pdf
